@@ -31,9 +31,9 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.ClientCnxn.EndOfStreamException;
-import org.apache.zookeeper.ClientCnxn.Packet;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.ZooKeeper.States;
+import org.apache.zookeeper.client.Packet;
 
 public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     private static final Logger LOG = Logger

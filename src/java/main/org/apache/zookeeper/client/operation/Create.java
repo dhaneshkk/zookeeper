@@ -10,34 +10,25 @@ import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.CreateRequest;
 import org.apache.zookeeper.proto.CreateResponse;
-import org.apache.zookeeper.common.Path;
 
 public class Create extends Operation {
 	private byte data[];
 	private List<ACL> acl;
 	private CreateMode createMode;
-	private Path responsePath;
+	private String responsePath;
 	
-	public Create(Path path, byte[] data, List<ACL> acl, CreateMode createMode) throws InvalidACLException {
+	public Create(String path, byte[] data, List<ACL> acl, CreateMode createMode) throws InvalidACLException {
 		super(path);
 		this.data = data;	
 		this.createMode = createMode;
 		this.responsePath = null;
-		setAcl(acl);
-	}
-	
-	public void setPath(Path path) {
-		this.path = path;
+		this.setAcl(acl);
 	}
 	
 	public byte[] getData() {
 		return data;
 	}
-	
-	public void setData(byte[] data) {
-		this.data = data;
-	}
-	
+		
 	public List<ACL> getAcl() {
 		return acl;
 	}
@@ -53,31 +44,26 @@ public class Create extends Operation {
 		return createMode;
 	}
 	
-	public void setCreateMode(CreateMode createMode) {
-		this.createMode = createMode;
-	}
-	
-	public Path getResponsePath() {
+	public String getResponsePath() {
 		return responsePath;
 	}
 	
 	@Override
-	public Record createRequest(ChrootPathTranslator chroot) {
-		Path serverPath = chroot.toServer(path);
+	public Record createRequest() {
 		CreateRequest request = new CreateRequest();
 		
 		request.setData(data);
 		request.setFlags(createMode.toFlag());
-		request.setPath(serverPath.toString());
+		request.setPath(this.path);
 		request.setAcl(acl);
 		
 		return request;
 	}
 
 	@Override
-	public void receiveResponse(ChrootPathTranslator chroot, Record response) {	
+	public void receiveResponse(Record response) {	
 		CreateResponse createResponse = (CreateResponse) response;
-		this.responsePath = chroot.toServer(createResponse.getPath());
+		this.responsePath = createResponse.getPath();
 	}
 
 	@Override

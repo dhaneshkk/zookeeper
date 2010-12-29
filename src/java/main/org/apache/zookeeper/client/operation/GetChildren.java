@@ -3,11 +3,11 @@ package org.apache.zookeeper.client.operation;
 import java.util.List;
 
 import org.apache.jute.Record;
-import org.apache.zookeeper.WatchRegistration;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.proto.GetChildrenRequest;
 import org.apache.zookeeper.proto.GetChildrenResponse;
+import org.apache.zookeeper.client.WatchRegistration;
 import org.apache.zookeeper.common.Path;
 
 public class GetChildren extends Operation {

@@ -8,7 +8,7 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.ExistsRequest;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.SetDataResponse;
-import org.apache.zookeeper.WatchRegistration;
+import org.apache.zookeeper.client.WatchRegistration;
 import org.apache.zookeeper.common.Path;
 
 public class Exists extends Operation {
@@ -77,7 +77,7 @@ public class Exists extends Operation {
 	
 	// Return a ExistsWatchRegistration object, if there is a order for watching
 	@Override
-	public WatchRegistration.Exists getWatchRegistration(String serverPath) {
+	public org.apache.zookeeper.client.Exists getWatchRegistration(String serverPath) {
 		if(watching) {
 			return new WatchRegistration.Exists(watcher, serverPath);
 		}

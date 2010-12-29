@@ -1,12 +1,12 @@
 package org.apache.zookeeper.client.operation;
 
 import org.apache.jute.Record;
-import org.apache.zookeeper.WatchRegistration;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetDataRequest;
 import org.apache.zookeeper.proto.GetDataResponse;
+import org.apache.zookeeper.client.WatchRegistration;
 import org.apache.zookeeper.common.Path;
 
 public class GetData extends Operation {
