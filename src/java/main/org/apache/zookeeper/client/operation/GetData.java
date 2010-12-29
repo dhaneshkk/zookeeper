@@ -9,7 +9,6 @@ import org.apache.zookeeper.proto.GetDataResponse;
 import org.apache.zookeeper.client.WatchRegistration;
 
 public class GetData extends Operation {
-	private boolean watching = false;
 	private Watcher watcher = null;
 	private byte[] data;
 	private Stat stat;
@@ -18,15 +17,9 @@ public class GetData extends Operation {
 		super(path);
 	}
 	
-	public GetData(String path, boolean watch) {
-		this(path);
-		this.watching = watch;
-	}
-	
 	public GetData(String path, Watcher watcher) {
 		this(path);
 		this.watcher = watcher;
-		this.watching = true;
 	}
 
 	@Override
@@ -47,7 +40,8 @@ public class GetData extends Operation {
 	public void receiveResponse(Record response) {
 		GetDataResponse getDataResponse = (GetDataResponse)response;
 		
-		this.data = getDataResponse.getData();
+		data = getDataResponse.getData();
+		stat = getDataResponse.getStat();
 	}
 
 	@Override
@@ -59,10 +53,9 @@ public class GetData extends Operation {
 		return data;
 	}
 	
-	// Return a DataWatchRegistration object, if there is a order for watching
 	@Override
 	public WatchRegistration.Data getWatchRegistration() {
-		if(watching) {
+		if(watcher != null) {
 			return new WatchRegistration.Data(watcher, path);
 		}
 		return null;	

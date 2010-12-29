@@ -11,22 +11,15 @@ import org.apache.zookeeper.proto.SetDataResponse;
 import org.apache.zookeeper.client.WatchRegistration;
 
 public class Exists extends Operation {
-	private boolean watching = false;
-	private Watcher watcher = null;
 	private Stat stat;
 	
 	public Exists(String path) {
 		super(path);
 	}
 	
-	public Exists(String path, boolean watch) {
-		this(path);
-		this.watching = watch;
-	}
 	public Exists(String path, Watcher watcher) {
 		this(path);
 		this.watcher = watcher;
-		this.watching = true;
 	}
     
 	public Stat getStat() {
@@ -52,7 +45,7 @@ public class Exists extends Operation {
 	public void receiveResponse(Record response) {
 		if(response == null)
 		{
-			stat = null;
+			return;
 		}
 		SetDataResponse existsResponse = (SetDataResponse) response;
 		stat = existsResponse.getStat().getCzxid() == -1 ? null: existsResponse.getStat();
@@ -63,6 +56,7 @@ public class Exists extends Operation {
 		if(header.getErr() != 0) {
 			if(header.getErr() == KeeperException.Code.NONODE.intValue()) {
 				stat = null;
+				return;
 			}
 			throw KeeperException.create(KeeperException.Code.get(header.getErr()), path.toString()); 
 		}	
@@ -76,9 +70,9 @@ public class Exists extends Operation {
 	// Return a ExistsWatchRegistration object, if there is a order for watching
 	@Override
 	public WatchRegistration.Exists getWatchRegistration() {
-		if(watching) {
-			return new WatchRegistration.Exists(watcher, path);
-		}
-		return null;	
+	    if(watcher != null) {
+	        return new WatchRegistration.Exists(watcher, path);
+	    }
+	    return null;	
 	}
 }

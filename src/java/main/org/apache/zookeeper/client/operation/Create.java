@@ -21,7 +21,6 @@ public class Create extends Operation {
 		super(path, createMode.isSequential());
 		this.data = data;	
 		this.createMode = createMode;
-		this.responsePath = null;
 		this.setAcl(acl);
 	}
 	
@@ -33,7 +32,7 @@ public class Create extends Operation {
 		return acl;
 	}
 	
-	public void setAcl(List<ACL> acl) throws InvalidACLException {
+	private void setAcl(List<ACL> acl) throws InvalidACLException {
 		if (acl != null && acl.size() == 0) {
             throw new KeeperException.InvalidACLException();
         }
@@ -49,7 +48,7 @@ public class Create extends Operation {
 	}
 	
 	@Override
-	public Record createRequest() {
+	public CreateRequest createRequest() {
 		CreateRequest request = new CreateRequest();
 		
 		request.setData(data);
@@ -72,7 +71,7 @@ public class Create extends Operation {
 	}
 
 	@Override
-	public Record createResponse() {
+	public CreateResponse createResponse() {
 		return new CreateResponse();
 	}
 }
