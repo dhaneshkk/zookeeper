@@ -38,37 +38,20 @@ import org.apache.zookeeper.client.ConnectStringParser;
 import org.apache.zookeeper.client.Executor;
 import org.apache.zookeeper.client.HostProvider;
 import org.apache.zookeeper.client.StaticHostProvider;
-import org.apache.zookeeper.client.WatchRegistration;
 import org.apache.zookeeper.client.WatchManager;
 import org.apache.zookeeper.client.operation.Create;
 import org.apache.zookeeper.client.operation.Delete;
 import org.apache.zookeeper.client.operation.Exists;
+import org.apache.zookeeper.client.operation.GetACL;
 import org.apache.zookeeper.client.operation.GetChildren;
+import org.apache.zookeeper.client.operation.GetChildren2;
 import org.apache.zookeeper.client.operation.GetData;
+import org.apache.zookeeper.client.operation.SetACL;
 import org.apache.zookeeper.client.operation.SetData;
+import org.apache.zookeeper.client.operation.Sync;
 import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.proto.CreateRequest;
-import org.apache.zookeeper.proto.CreateResponse;
-import org.apache.zookeeper.proto.DeleteRequest;
-import org.apache.zookeeper.proto.ExistsRequest;
-import org.apache.zookeeper.proto.GetACLRequest;
-import org.apache.zookeeper.proto.GetACLResponse;
-import org.apache.zookeeper.proto.GetChildren2Request;
-import org.apache.zookeeper.proto.GetChildren2Response;
-import org.apache.zookeeper.proto.GetChildrenRequest;
-import org.apache.zookeeper.proto.GetChildrenResponse;
-import org.apache.zookeeper.proto.GetDataRequest;
-import org.apache.zookeeper.proto.GetDataResponse;
-import org.apache.zookeeper.proto.ReplyHeader;
-import org.apache.zookeeper.proto.RequestHeader;
-import org.apache.zookeeper.proto.SetACLRequest;
-import org.apache.zookeeper.proto.SetACLResponse;
-import org.apache.zookeeper.proto.SetDataRequest;
-import org.apache.zookeeper.proto.SetDataResponse;
-import org.apache.zookeeper.proto.SyncRequest;
-import org.apache.zookeeper.proto.SyncResponse;
 import org.apache.zookeeper.server.DataTree;
 
 /**
@@ -478,6 +461,20 @@ public class ZooKeeper {
     public void delete(final String path, int version)
         throws InterruptedException, KeeperException
     {
+        // FIX: How to handle the case that the clientPath is "/"?
+        // This is how it was done until the operation classes refactoring:
+        //
+        // maintain semantics even in chroot case
+        // specifically - root cannot be deleted
+        // I think this makes sense even in chroot case.
+        // if (clientPath.equals("/")) {
+        //     // a bit of a hack, but delete(/) will never succeed and ensures
+        //     // that the same semantics are maintained
+        //     serverPath = clientPath;
+        // } else {
+        //     serverPath = prependChroot(clientPath);
+        // }
+
         Delete op = new Delete(path, version);
         executor.execute(op);
     }
@@ -604,7 +601,7 @@ public class ZooKeeper {
     {
         Exists op = new Exists(path, watcher);
         executor.execute(op);
-        return op.getStat().getCzxid() == -1 ? null : op.getStat();
+        return op.getStat();
     }
 
     /**
@@ -799,19 +796,28 @@ public class ZooKeeper {
     public List<ACL> getACL(final String path, Stat stat)
         throws KeeperException, InterruptedException
     {
-
+        GetACL op = new GetACL(path);
+        executor.execute(op);
+        
+        if (stat != null) {
+            DataTree.copyStat(op.getStat(), stat);
+        }
+        return op.getAcl();
     }
 
     /**
      * The Asynchronous version of getACL. The request doesn't actually until
      * the asynchronous callback is called.
+     * 
+     * FIX: ZOOKEEPER-969 stat parameter is superfluous.
      *
      * @see #getACL(String, Stat)
      */
     public void getACL(final String path, Stat stat, ACLCallback cb,
             Object ctx)
     {
-
+        GetACL op = new GetACL(path);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -837,7 +843,9 @@ public class ZooKeeper {
     public Stat setACL(final String path, List<ACL> acl, int version)
         throws KeeperException, InterruptedException
     {
-
+        SetACL op = new SetACL(path, acl, version);
+        executor.execute(op);
+        return op.getStat();
     }
 
     /**
@@ -849,7 +857,12 @@ public class ZooKeeper {
     public void setACL(final String path, List<ACL> acl, int version,
             StatCallback cb, Object ctx)
     {
-
+        try {
+            SetACL op = new SetACL(path, acl, version);
+            executor.send(op, cb, ctx);
+        } catch (InvalidACLException e) {
+            // FIX: We should throw the exception, see ZOOKEEPER-847
+        }
     }
 
     /**
@@ -959,7 +972,14 @@ public class ZooKeeper {
             Stat stat)
         throws KeeperException, InterruptedException
     {
-
+        GetChildren2 op = new GetChildren2(path, watcher);
+        executor.execute(op);
+        
+        if (stat != null) {
+            DataTree.copyStat(op.getStat(), stat);
+        }
+        
+        return op.getChildren();
     }
 
     /**
@@ -1003,7 +1023,8 @@ public class ZooKeeper {
     public void getChildren(final String path, Watcher watcher,
             Children2Callback cb, Object ctx)
     {
-
+        GetChildren2 op = new GetChildren2(path, watcher);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -1028,7 +1049,8 @@ public class ZooKeeper {
      * @throws IllegalArgumentException if an invalid path is specified
      */
     public void sync(final String path, VoidCallback cb, Object ctx){
-
+        Sync op = new Sync(path);
+        executor.send(op, cb, ctx);
     }
 
     public States getState() {

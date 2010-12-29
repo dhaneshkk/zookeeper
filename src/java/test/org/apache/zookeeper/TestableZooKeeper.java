@@ -20,8 +20,6 @@ package org.apache.zookeeper;
 
 import java.io.IOException;
 import java.net.SocketAddress;
-import java.nio.channels.SocketChannel;
-import java.util.List;
 
 public class TestableZooKeeper extends ZooKeeper {
 
@@ -29,24 +27,6 @@ public class TestableZooKeeper extends ZooKeeper {
             Watcher watcher) throws IOException {
         super(host, sessionTimeout, watcher);
     }
-    
-    @Override
-    public List<String> getChildWatches() {
-        return super.getChildWatches();
-    }
-
-
-    @Override
-    public List<String> getDataWatches() {
-        return super.getDataWatches();
-    }
-
-
-    @Override
-    public List<String> getExistWatches() {
-        return super.getExistWatches();
-    }
-
 
     /**
      * Cause this ZooKeeper object to stop receiving from the ZooKeeperServer

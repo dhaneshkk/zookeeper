@@ -271,7 +271,7 @@ public class ClientCnxn {
         disableAutoWatchReset = b;
     }
     
-    WatchManager getWatchManager(){
+    public WatchManager getWatchManager(){
         return watchManager;
     }
 
@@ -1017,7 +1017,7 @@ public class ClientCnxn {
         queuePacket(packet);
     }
 
-    States getState() {
+    public States getState() {
         return state;
     }
 }
