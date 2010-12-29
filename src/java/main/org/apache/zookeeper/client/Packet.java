@@ -94,6 +94,10 @@ public class Packet {
                 && requestHeader.getType() != OpCode.auth;
     }
     
+    public static boolean isValidPacketLength(int length){
+        return length>=0 && length < MAX_LENGTH;
+    }
+       
     public synchronized void waitForFinish() throws InterruptedException{
         while (!finished) {
             wait();
