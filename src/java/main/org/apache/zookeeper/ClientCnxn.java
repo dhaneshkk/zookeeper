@@ -30,7 +30,6 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.Record;
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.AsyncCallback.ACLCallback;
 import org.apache.zookeeper.AsyncCallback.Children2Callback;
@@ -47,7 +46,6 @@ import org.apache.zookeeper.ZooKeeper.States;
 import org.apache.zookeeper.client.HostProvider;
 import org.apache.zookeeper.client.Packet;
 import org.apache.zookeeper.client.WatchManager;
-import org.apache.zookeeper.client.WatchRegistration;
 import org.apache.zookeeper.proto.AuthPacket;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.CreateResponse;
@@ -558,9 +556,6 @@ public class ClientCnxn {
         }
     }
 
-    public static final int packetLen = Integer.getInteger("jute.maxbuffer",
-            4096 * 1024);
-
     /**
      * This class services the outgoing request queue and generates the heart
      * beats. It also spawns the ReadThread.
@@ -960,7 +955,8 @@ public class ClientCnxn {
             h.setType(ZooDefs.OpCode.closeSession);
             Packet packet = new Packet();
             packet.requestHeader = h;
-            submitRequest(packet);
+            queuePacket(packet);
+            packet.waitForFinish();
         } catch (InterruptedException e) {
             // ignore, close the send/event threads
         } finally {
@@ -976,17 +972,7 @@ public class ClientCnxn {
         return xid++;
     }
 
-    public void submitRequest(Packet packet)
-            throws InterruptedException {
-        queuePacket(packet);
-        synchronized (packet) {
-            while (!packet.finished) {
-                packet.wait();
-            }
-        }
-    }
-
-    public Packet queuePacket(Packet packet) {
+    public void queuePacket(Packet packet) {
         synchronized (outgoingQueue) {
             if (packet.isOrdered()) {
                 packet.requestHeader.setXid(getXid());
@@ -1003,7 +989,6 @@ public class ClientCnxn {
             }
         }
         sendThread.getClientCnxnSocket().wakeupCnxn();
-        return packet;
     }
 
     public void addAuthInfo(String scheme, byte auth[]) {
