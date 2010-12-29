@@ -33,11 +33,19 @@ import org.apache.zookeeper.AsyncCallback.DataCallback;
 import org.apache.zookeeper.AsyncCallback.StatCallback;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.AsyncCallback.VoidCallback;
+import org.apache.zookeeper.KeeperException.InvalidACLException;
 import org.apache.zookeeper.client.ConnectStringParser;
+import org.apache.zookeeper.client.Executor;
 import org.apache.zookeeper.client.HostProvider;
 import org.apache.zookeeper.client.StaticHostProvider;
 import org.apache.zookeeper.client.WatchRegistration;
 import org.apache.zookeeper.client.WatchManager;
+import org.apache.zookeeper.client.operation.Create;
+import org.apache.zookeeper.client.operation.Delete;
+import org.apache.zookeeper.client.operation.Exists;
+import org.apache.zookeeper.client.operation.GetChildren;
+import org.apache.zookeeper.client.operation.GetData;
+import org.apache.zookeeper.client.operation.SetData;
 import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
@@ -114,8 +122,6 @@ public class ZooKeeper {
         Environment.logEnv("Client environment:", LOG);
     }
 
-    private final WatchManager watchManager = new WatchManager();
-
     public enum States {
         CONNECTING, ASSOCIATING, CONNECTED, CLOSED, AUTH_FAILED;
 
@@ -125,6 +131,8 @@ public class ZooKeeper {
     }
 
     protected final ClientCnxn cnxn;
+    
+    private Executor executor;
 
     /**
      * To create a ZooKeeper client object, the application needs to pass a
@@ -175,16 +183,16 @@ public class ZooKeeper {
         LOG.info("Initiating client connection, connectString=" + connectString
                 + " sessionTimeout=" + sessionTimeout + " watcher=" + watcher);
 
-        watchManager.setDefaultWatcher(watcher);
-
         ConnectStringParser connectStringParser = new ConnectStringParser(
                 connectString);
         HostProvider hostProvider = new StaticHostProvider(
                 connectStringParser.getServerAddresses());
         cnxn = new ClientCnxn(connectStringParser.getChrootPath(),
-                hostProvider, sessionTimeout, this, watchManager,
+                hostProvider, sessionTimeout,
                 getClientCnxnSocket());
+        cnxn.getWatchManager().setDefaultWatcher(watcher);
         cnxn.start();
+        executor = new Executor(cnxn);
     }
 
     /**
@@ -250,20 +258,20 @@ public class ZooKeeper {
                 + " sessionPasswd="
                 + (sessionPasswd == null ? "<null>" : "<hidden>"));
 
-        watchManager.setDefaultWatcher(watcher);
-
         ConnectStringParser connectStringParser = new ConnectStringParser(
                 connectString);
         HostProvider hostProvider = new StaticHostProvider(
                 connectStringParser.getServerAddresses());
         cnxn = new ClientCnxn(connectStringParser.getChrootPath(),
-                hostProvider, sessionTimeout, this, watchManager,
+                hostProvider, sessionTimeout,
                 getClientCnxnSocket(), sessionId, sessionPasswd);
+        cnxn.getWatchManager().setDefaultWatcher(watcher);
         cnxn.start();
+        executor = new Executor(cnxn);
     }
     
     WatchManager getWatchManager(){
-        return watchManager;
+        return cnxn.getWatchManager();
     }
 
     /**
@@ -324,7 +332,7 @@ public class ZooKeeper {
      * @param watcher
      */
     public synchronized void register(Watcher watcher) {
-        watchManager.setDefaultWatcher(watcher);
+        cnxn.getWatchManager().setDefaultWatcher(watcher);
     }
 
     /**
@@ -356,25 +364,6 @@ public class ZooKeeper {
         }
 
         LOG.info("Session: 0x" + Long.toHexString(getSessionId()) + " closed");
-    }
-
-    /**
-     * Prepend the chroot to the client path (if present). The expectation of
-     * this function is that the client path has been validated before this
-     * function is called
-     * @param clientPath path to the node
-     * @return server view of the path (chroot prepended to client path)
-     */
-    private String prependChroot(String clientPath) {
-        if (cnxn.chrootPath != null) {
-            // handle clientPath = "/"
-            if (clientPath.length() == 1) {
-                return cnxn.chrootPath;
-            }
-            return cnxn.chrootPath + clientPath;
-        } else {
-            return clientPath;
-        }
     }
 
     /**
@@ -436,32 +425,9 @@ public class ZooKeeper {
             CreateMode createMode)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath, createMode.isSequential());
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.create);
-        CreateRequest request = new CreateRequest();
-        CreateResponse response = new CreateResponse();
-        request.setData(data);
-        request.setFlags(createMode.toFlag());
-        request.setPath(serverPath);
-        if (acl != null && acl.size() == 0) {
-            throw new KeeperException.InvalidACLException();
-        }
-        request.setAcl(acl);
-        ReplyHeader r = cnxn.submitRequest(h, request, response, null);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-        if (cnxn.chrootPath == null) {
-            return response.getPath();
-        } else {
-            return response.getPath().substring(cnxn.chrootPath.length());
-        }
+        final Create op = new Create(path, data, acl, createMode);        
+        executor.execute(op);
+        return op.getResponsePath();
     }
 
     /**
@@ -472,24 +438,14 @@ public class ZooKeeper {
      */
 
     public void create(final String path, byte data[], List<ACL> acl,
-            CreateMode createMode,  StringCallback cb, Object ctx)
+            CreateMode createMode, StringCallback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath, createMode.isSequential());
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.create);
-        CreateRequest request = new CreateRequest();
-        CreateResponse response = new CreateResponse();
-        ReplyHeader r = new ReplyHeader();
-        request.setData(data);
-        request.setFlags(createMode.toFlag());
-        request.setPath(serverPath);
-        request.setAcl(acl);
-        cnxn.queuePacket(h, r, request, response, cb, clientPath,
-                serverPath, ctx, null);
+        try {
+            Create op = new Create(path, data, acl, createMode);
+            executor.send(op, cb, ctx);
+        } catch (InvalidACLException e) {
+            // FIX: We should throw the exception, see ZOOKEEPER-847
+        }
     }
 
     /**
@@ -522,32 +478,8 @@ public class ZooKeeper {
     public void delete(final String path, int version)
         throws InterruptedException, KeeperException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        final String serverPath;
-
-        // maintain semantics even in chroot case
-        // specifically - root cannot be deleted
-        // I think this makes sense even in chroot case.
-        if (clientPath.equals("/")) {
-            // a bit of a hack, but delete(/) will never succeed and ensures
-            // that the same semantics are maintained
-            serverPath = clientPath;
-        } else {
-            serverPath = prependChroot(clientPath);
-        }
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.delete);
-        DeleteRequest request = new DeleteRequest();
-        request.setPath(serverPath);
-        request.setVersion(version);
-        ReplyHeader r = cnxn.submitRequest(h, request, null, null);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
+        Delete op = new Delete(path, version);
+        executor.execute(op);
     }
 
     
@@ -646,29 +578,8 @@ public class ZooKeeper {
     public void delete(final String path, int version, VoidCallback cb,
             Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        final String serverPath;
-
-        // maintain semantics even in chroot case
-        // specifically - root cannot be deleted
-        // I think this makes sense even in chroot case.
-        if (clientPath.equals("/")) {
-            // a bit of a hack, but delete(/) will never succeed and ensures
-            // that the same semantics are maintained
-            serverPath = clientPath;
-        } else {
-            serverPath = prependChroot(clientPath);
-        }
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.delete);
-        DeleteRequest request = new DeleteRequest();
-        request.setPath(serverPath);
-        request.setVersion(version);
-        cnxn.queuePacket(h, new ReplyHeader(), request, null, cb, clientPath,
-                serverPath, ctx, null);
+        Delete op = new Delete(path, version);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -691,33 +602,9 @@ public class ZooKeeper {
     public Stat exists(final String path, Watcher watcher)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Exists(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.exists);
-        ExistsRequest request = new ExistsRequest();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        SetDataResponse response = new SetDataResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
-        if (r.getErr() != 0) {
-            if (r.getErr() == KeeperException.Code.NONODE.intValue()) {
-                return null;
-            }
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-
-        return response.getStat().getCzxid() == -1 ? null : response.getStat();
+        Exists op = new Exists(path, watcher);
+        executor.execute(op);
+        return op.getStat().getCzxid() == -1 ? null : op.getStat();
     }
 
     /**
@@ -741,7 +628,7 @@ public class ZooKeeper {
     public Stat exists(String path, boolean watch) throws KeeperException,
         InterruptedException
     {
-        return exists(path, watch ? watchManager.getDefaultWatcher() : null);
+        return exists(path, watch ? getDefaultWatcher() : null);
     }
 
     /**
@@ -753,25 +640,8 @@ public class ZooKeeper {
     public void exists(final String path, Watcher watcher,
             StatCallback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Exists(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.exists);
-        ExistsRequest request = new ExistsRequest();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        SetDataResponse response = new SetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
+        Exists op = new Exists(path, watcher);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -781,7 +651,7 @@ public class ZooKeeper {
      * @see #exists(String, boolean)
      */
     public void exists(String path, boolean watch, StatCallback cb, Object ctx) {
-        exists(path, watch ? watchManager.getDefaultWatcher() : null, cb, ctx);
+        exists(path, watch ? getDefaultWatcher() : null, cb, ctx);
     }
 
     /**
@@ -805,33 +675,14 @@ public class ZooKeeper {
      */
     public byte[] getData(final String path, Watcher watcher, Stat stat)
         throws KeeperException, InterruptedException
-     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Data(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getData);
-        GetDataRequest request = new GetDataRequest();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        GetDataResponse response = new GetDataResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
+    {       
+        GetData op = new GetData(path, watcher);
+        executor.execute(op);
+        
         if (stat != null) {
-            DataTree.copyStat(response.getStat(), stat);
+            DataTree.copyStat(op.getStat(), stat);
         }
-        return response.getData();
+        return op.getData();
     }
 
     /**
@@ -854,7 +705,7 @@ public class ZooKeeper {
      */
     public byte[] getData(String path, boolean watch, Stat stat)
             throws KeeperException, InterruptedException {
-        return getData(path, watch ? watchManager.getDefaultWatcher() : null, stat);
+        return getData(path, watch ? getDefaultWatcher() : null, stat);
     }
 
     /**
@@ -866,25 +717,8 @@ public class ZooKeeper {
     public void getData(final String path, Watcher watcher,
             DataCallback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Data(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getData);
-        GetDataRequest request = new GetDataRequest();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        GetDataResponse response = new GetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
+        GetData op = new GetData(path, watcher);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -894,7 +728,7 @@ public class ZooKeeper {
      * @see #getData(String, boolean, Stat)
      */
     public void getData(String path, boolean watch, DataCallback cb, Object ctx) {
-        getData(path, watch ? watchManager.getDefaultWatcher() : null, cb, ctx);
+        getData(path, watch ? getDefaultWatcher() : null, cb, ctx);
     }
 
     /**
@@ -928,24 +762,10 @@ public class ZooKeeper {
     public Stat setData(final String path, byte data[], int version)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setData);
-        SetDataRequest request = new SetDataRequest();
-        request.setPath(serverPath);
-        request.setData(data);
-        request.setVersion(version);
-        SetDataResponse response = new SetDataResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, null);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-        return response.getStat();
+        SetData op = new SetData(path, data, version);
+        executor.execute(op);
+        
+        return op.getStat();
     }
 
     /**
@@ -957,20 +777,8 @@ public class ZooKeeper {
     public void setData(final String path, byte data[], int version,
             StatCallback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setData);
-        SetDataRequest request = new SetDataRequest();
-        request.setPath(serverPath);
-        request.setData(data);
-        request.setVersion(version);
-        SetDataResponse response = new SetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, null);
+        SetData op = new SetData(path, data, version);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -991,23 +799,7 @@ public class ZooKeeper {
     public List<ACL> getACL(final String path, Stat stat)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getACL);
-        GetACLRequest request = new GetACLRequest();
-        request.setPath(serverPath);
-        GetACLResponse response = new GetACLResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, null);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-        DataTree.copyStat(response.getStat(), stat);
-        return response.getAcl();
     }
 
     /**
@@ -1019,18 +811,7 @@ public class ZooKeeper {
     public void getACL(final String path, Stat stat, ACLCallback cb,
             Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getACL);
-        GetACLRequest request = new GetACLRequest();
-        request.setPath(serverPath);
-        GetACLResponse response = new GetACLResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, null);
     }
 
     /**
@@ -1056,27 +837,7 @@ public class ZooKeeper {
     public Stat setACL(final String path, List<ACL> acl, int version)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setACL);
-        SetACLRequest request = new SetACLRequest();
-        request.setPath(serverPath);
-        if (acl != null && acl.size() == 0) {
-            throw new KeeperException.InvalidACLException();
-        }
-        request.setAcl(acl);
-        request.setVersion(version);
-        SetACLResponse response = new SetACLResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, null);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-        return response.getStat();
     }
 
     /**
@@ -1088,20 +849,7 @@ public class ZooKeeper {
     public void setACL(final String path, List<ACL> acl, int version,
             StatCallback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setACL);
-        SetACLRequest request = new SetACLRequest();
-        request.setPath(serverPath);
-        request.setAcl(acl);
-        request.setVersion(version);
-        SetACLResponse response = new SetACLResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, null);
     }
 
     /**
@@ -1128,29 +876,9 @@ public class ZooKeeper {
     public List<String> getChildren(final String path, Watcher watcher)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Child(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren);
-        GetChildrenRequest request = new GetChildrenRequest();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        GetChildrenResponse response = new GetChildrenResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-        return response.getChildren();
+        GetChildren op = new GetChildren(path, watcher);
+        executor.execute(op);
+        return op.getChildren();
     }
 
     /**
@@ -1175,7 +903,7 @@ public class ZooKeeper {
      */
     public List<String> getChildren(String path, boolean watch)
             throws KeeperException, InterruptedException {
-        return getChildren(path, watch ? watchManager.getDefaultWatcher() : null);
+        return getChildren(path, watch ? getDefaultWatcher() : null);
     }
 
     /**
@@ -1187,25 +915,8 @@ public class ZooKeeper {
     public void getChildren(final String path, Watcher watcher,
             ChildrenCallback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
-
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Child(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren);
-        GetChildrenRequest request = new GetChildrenRequest();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        GetChildrenResponse response = new GetChildrenResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
+        GetChildren op = new GetChildren(path, watcher);
+        executor.send(op, cb, ctx);
     }
 
     /**
@@ -1217,7 +928,7 @@ public class ZooKeeper {
     public void getChildren(String path, boolean watch, ChildrenCallback cb,
             Object ctx)
     {
-        getChildren(path, watch ? watchManager.getDefaultWatcher() : null, cb, ctx);
+        getChildren(path, watch ? getDefaultWatcher() : null, cb, ctx);
     }
 
     /**
@@ -1248,32 +959,7 @@ public class ZooKeeper {
             Stat stat)
         throws KeeperException, InterruptedException
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Child(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren2);
-        GetChildren2Request request = new GetChildren2Request();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        GetChildren2Response response = new GetChildren2Response();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
-        }
-        if (stat != null) {
-            DataTree.copyStat(response.getStat(), stat);
-        }
-        return response.getChildren();
     }
 
     /**
@@ -1302,7 +988,7 @@ public class ZooKeeper {
      */
     public List<String> getChildren(String path, boolean watch, Stat stat)
             throws KeeperException, InterruptedException {
-        return getChildren(path, watch ? watchManager.getDefaultWatcher() : null,
+        return getChildren(path, watch ? getDefaultWatcher() : null,
                 stat);
     }
 
@@ -1317,25 +1003,7 @@ public class ZooKeeper {
     public void getChildren(final String path, Watcher watcher,
             Children2Callback cb, Object ctx)
     {
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        // the watch contains the un-chroot path
-        WatchRegistration wcb = null;
-        if (watcher != null) {
-            wcb = new WatchRegistration.Child(watcher, clientPath);
-        }
-
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren2);
-        GetChildren2Request request = new GetChildren2Request();
-        request.setPath(serverPath);
-        request.setWatch(watcher != null);
-        GetChildren2Response response = new GetChildren2Response();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
     }
 
     /**
@@ -1349,7 +1017,7 @@ public class ZooKeeper {
     public void getChildren(String path, boolean watch, Children2Callback cb,
             Object ctx)
     {
-        getChildren(path, watch ? watchManager.getDefaultWatcher() : null, cb, ctx);
+        getChildren(path, watch ? getDefaultWatcher() : null, cb, ctx);
     }
 
     /**
@@ -1360,18 +1028,7 @@ public class ZooKeeper {
      * @throws IllegalArgumentException if an invalid path is specified
      */
     public void sync(final String path, VoidCallback cb, Object ctx){
-        final String clientPath = path;
-        PathUtils.validatePath(clientPath);
 
-        final String serverPath = prependChroot(clientPath);
-
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.sync);
-        SyncRequest request = new SyncRequest();
-        SyncResponse response = new SyncResponse();
-        request.setPath(serverPath);
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, null);
     }
 
     public States getState() {
@@ -1466,5 +1123,9 @@ public class ZooKeeper {
             ioe.initCause(e);
             throw ioe;
         }
+    }
+    
+    private Watcher getDefaultWatcher(){
+        return cnxn.getWatchManager().getDefaultWatcher();
     }
 }

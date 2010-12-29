@@ -7,36 +7,32 @@ import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetDataRequest;
 import org.apache.zookeeper.proto.GetDataResponse;
 import org.apache.zookeeper.client.WatchRegistration;
-import org.apache.zookeeper.common.Path;
 
 public class GetData extends Operation {
-	private Path path;
 	private boolean watching = false;
 	private Watcher watcher = null;
 	private byte[] data;
 	private Stat stat;
 	
-	public GetData(Path path) {
+	public GetData(String path) {
 		super(path);
 	}
 	
-	public GetData(Path path, boolean watch) {
+	public GetData(String path, boolean watch) {
 		this(path);
 		this.watching = watch;
 	}
 	
-	public GetData(Path path, Watcher watcher) {
+	public GetData(String path, Watcher watcher) {
 		this(path);
 		this.watcher = watcher;
 		this.watching = true;
 	}
 
 	@Override
-	public Record createRequest(ChrootPathTranslator chroot) {
-		final String serverPath = chroot.toServer(path).toString();
-		
+	public Record createRequest() {		
 		GetDataRequest request = new GetDataRequest();
-		request.setPath(serverPath);
+		request.setPath(path);
 		request.setWatch(watcher != null);
 		
 		return request;
@@ -48,7 +44,7 @@ public class GetData extends Operation {
 	}
 
 	@Override
-	public void receiveResponse(ChrootPathTranslator chroot, Record response) {
+	public void receiveResponse(Record response) {
 		GetDataResponse getDataResponse = (GetDataResponse)response;
 		
 		this.data = getDataResponse.getData();
@@ -65,9 +61,9 @@ public class GetData extends Operation {
 	
 	// Return a DataWatchRegistration object, if there is a order for watching
 	@Override
-	public WatchRegistration.Data getWatchRegistration(String serverPath) {
+	public WatchRegistration.Data getWatchRegistration() {
 		if(watching) {
-			return new WatchRegistration.Data(watcher, serverPath);
+			return new WatchRegistration.Data(watcher, path);
 		}
 		return null;	
 	}

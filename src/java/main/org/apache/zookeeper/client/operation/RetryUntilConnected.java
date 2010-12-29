@@ -3,7 +3,7 @@ package org.apache.zookeeper.client.operation;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.zookeeper.Executor;
+import org.apache.zookeeper.client.Executor;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.KeeperException.ConnectionLossException;
@@ -42,7 +42,7 @@ public class RetryUntilConnected {
     private boolean waitUntilConnected(long time, TimeUnit timeUnit) {
     	Date timeout = new Date(System.currentTimeMillis() + timeUnit.toMillis(time));
     	while(true){
-    		if( executor.getConnection().getState() == ZooKeeper.States.CONNECTED){
+    		if( executor.getClientCnxn().getState() == ZooKeeper.States.CONNECTED){
     			return true;
     		}
     		try {

@@ -24,30 +24,56 @@ public class Executor {
 	 * Execute the operation synchronously.
 	 */
 	public void execute(Operation op) throws InterruptedException, KeeperException {
-		String path = op.getPath();
-		Record response = op.createResponse();
-    	Record request = op.createRequest();
-		RequestHeader header = new RequestHeader();
-		WatchRegistration watchRegistration = op.getWatchRegistration();
-
-		header.setType(op.getRequestOpCode());
-		ReplyHeader reply = clientCnxn.submitRequest(header, request , response, watchRegistration);
-		op.checkReplyHeader(reply);
-		op.receiveResponse(response);		
+	    Packet packet = createPacket(op);
+		clientCnxn.submitRequest(packet);
+		op.checkReplyHeader(packet.replyHeader);
+		op.receiveResponse(packet.response);		
 	}
 
 	/**
 	 * Send the operation for asynchronous execution.
 	 */
 	public void send(Operation op, AsyncCallback cb, Object context) {
-		Record response = op.createResponse();
-		Record request = op.createRequest();
-		RequestHeader header = new RequestHeader();
-		ReplyHeader reply = new ReplyHeader();
-		String path = op.getPath();
-		WatchRegistration watchRegistration = op.getWatchRegistration();
-	
-		header.setType(op.getRequestOpCode()); 
-		clientCnxn.queuePacket(header, reply, request, response, cb, path, context, watchRegistration);
+	    Packet packet = createPacket(op);
+        packet.cb = cb;
+        packet.ctx = context;
+		clientCnxn.queuePacket(packet);
 	}
+	
+	private Packet createPacket(Operation op){
+	    Record response = op.createResponse();
+	    Record request = op.createRequest();
+	    RequestHeader requestHeader = new RequestHeader();
+	    requestHeader.setType(op.getRequestOpCode()); 
+	    ReplyHeader replyHeader = new ReplyHeader();
+	    String clientPath = op.getPath();
+	    String serverPath = prependChroot(clientPath);
+	    WatchRegistration watchRegistration = op.getWatchRegistration();
+	    
+	    Packet packet = new Packet(requestHeader, replyHeader, request, response, watchRegistration);
+        packet.clientPath = clientPath;
+        packet.serverPath = serverPath;
+        
+        return packet;
+	}
+	
+    /**
+     * Prepend the chroot to the client path (if present). The expectation of
+     * this function is that the client path has been validated before this
+     * function is called
+     * @param clientPath path to the node
+     * @return server view of the path (chroot prepended to client path)
+     */
+    private String prependChroot(String clientPath) {
+        String chrootPath = clientCnxn.getChrootPath();
+        if (chrootPath != null) {
+            // handle clientPath = "/"
+            if (clientPath.length() == 1) {
+                return chrootPath;
+            }
+            return chrootPath + clientPath;
+        } else {
+            return clientPath;
+        }
+    }
 }

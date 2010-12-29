@@ -18,7 +18,7 @@ public class Create extends Operation {
 	private String responsePath;
 	
 	public Create(String path, byte[] data, List<ACL> acl, CreateMode createMode) throws InvalidACLException {
-		super(path);
+		super(path, createMode.isSequential());
 		this.data = data;	
 		this.createMode = createMode;
 		this.responsePath = null;

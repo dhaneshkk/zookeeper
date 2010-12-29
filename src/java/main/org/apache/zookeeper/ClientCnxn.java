@@ -129,8 +129,6 @@ public class ClientCnxn {
 
     private final int sessionTimeout;
 
-    private final ZooKeeper zooKeeper;
-
     private final WatchManager watchManager;
 
     private long sessionId;
@@ -203,8 +201,6 @@ public class ClientCnxn {
      *            the list of ZooKeeper servers to connect to
      * @param sessionTimeout
      *            the timeout for connections.
-     * @param zooKeeper
-     *            the zookeeper object that this connection is related to.
      * @param watchManager
      *            watchManager for this connection
      * @param clientCnxnSocket
@@ -212,9 +208,9 @@ public class ClientCnxn {
      * @throws IOException
      */
     public ClientCnxn(String chrootPath, HostProvider hostProvider,
-            int sessionTimeout, ZooKeeper zooKeeper, WatchManager watchManager,
+            int sessionTimeout,
             ClientCnxnSocket clientCnxnSocket) throws IOException {
-        this(chrootPath, hostProvider, sessionTimeout, zooKeeper, watchManager,
+        this(chrootPath, hostProvider, sessionTimeout,
                 clientCnxnSocket, 0, new byte[16]);
     }
 
@@ -230,10 +226,6 @@ public class ClientCnxn {
      *            the list of ZooKeeper servers to connect to
      * @param sessionTimeout
      *            the timeout for connections.
-     * @param zooKeeper
-     *            the zookeeper object that this connection is related to.
-     * @param watchManager
-     *            watchManager for this connection
      * @param clientCnxnSocket
      *            the socket implementation used (e.g. NIO/Netty)
      * @param sessionId
@@ -243,11 +235,10 @@ public class ClientCnxn {
      * @throws IOException
      */
     public ClientCnxn(String chrootPath, HostProvider hostProvider,
-            int sessionTimeout, ZooKeeper zooKeeper, WatchManager watchManager,
+            int sessionTimeout,
             ClientCnxnSocket clientCnxnSocket, long sessionId,
             byte[] sessionPasswd) {
-        this.zooKeeper = zooKeeper;
-        this.watchManager = watchManager;
+        this.watchManager = new WatchManager();
         this.sessionId = sessionId;
         this.sessionPasswd = sessionPasswd;
         this.sessionTimeout = sessionTimeout;
@@ -279,10 +270,18 @@ public class ClientCnxn {
     public static void setDisableAutoResetWatch(boolean b) {
         disableAutoWatchReset = b;
     }
+    
+    WatchManager getWatchManager(){
+        return watchManager;
+    }
 
     public void start() {
         sendThread.start();
         eventThread.start();
+    }
+    
+    public String getChrootPath(){
+        return chrootPath;
     }
 
     private Object eventOfDeath = new Object();
@@ -710,8 +709,6 @@ public class ClientCnxn {
             synchronized (outgoingQueue) {
                 // We add backwards since we are pushing into the front
                 // Only send if there's a pending watch
-                // FIX: Does this still work once there has been a new
-                // watchManager registered on ZooKeeper?
                 if (!disableAutoWatchReset && watchManager.hasWatches()) {
                     SetWatches sw = new SetWatches(lastZxid,
                             watchManager.getDataWatches(),
@@ -743,7 +740,9 @@ public class ClientCnxn {
         private void sendPing() {
             lastPingSentNs = System.nanoTime();
             RequestHeader h = new RequestHeader(-2, OpCode.ping);
-            queuePacket(h, null, null, null, null, null, null, null, null);
+            Packet packet = new Packet();
+            packet.requestHeader = h;
+            queuePacket(packet);
         }
 
         private void startConnect() throws IOException {
@@ -959,8 +958,9 @@ public class ClientCnxn {
         try {
             RequestHeader h = new RequestHeader();
             h.setType(ZooDefs.OpCode.closeSession);
-
-            submitRequest(h, null, null, null);
+            Packet packet = new Packet();
+            packet.requestHeader = h;
+            submitRequest(packet);
         } catch (InterruptedException e) {
             // ignore, close the send/event threads
         } finally {
@@ -976,39 +976,27 @@ public class ClientCnxn {
         return xid++;
     }
 
-    public ReplyHeader submitRequest(RequestHeader h, Record request,
-            Record response, WatchRegistration watchRegistration)
+    public void submitRequest(Packet packet)
             throws InterruptedException {
-        ReplyHeader r = new ReplyHeader();
-        Packet packet = queuePacket(h, r, request, response, null, null, null,
-                null, watchRegistration);
+        queuePacket(packet);
         synchronized (packet) {
             while (!packet.finished) {
                 packet.wait();
             }
         }
-        return r;
     }
 
-    Packet queuePacket(RequestHeader h, ReplyHeader r, Record request,
-            Record response, AsyncCallback cb, String clientPath,
-            String serverPath, Object ctx, WatchRegistration watchRegistration) {
-        Packet packet = null;
+    public Packet queuePacket(Packet packet) {
         synchronized (outgoingQueue) {
-            if (h.getType() != OpCode.ping && h.getType() != OpCode.auth) {
-                h.setXid(getXid());
+            if (packet.isOrdered()) {
+                packet.requestHeader.setXid(getXid());
             }
-            packet = new Packet(h, r, request, response, watchRegistration);
-            packet.cb = cb;
-            packet.ctx = ctx;
-            packet.clientPath = clientPath;
-            packet.serverPath = serverPath;
             if (!state.isAlive() || closing) {
                 conLossPacket(packet);
             } else {
                 // If the client is asking to close the session then
                 // mark as closing
-                if (h.getType() == OpCode.closeSession) {
+                if (packet.requestHeader.getType() == OpCode.closeSession) {
                     closing = true;
                 }
                 outgoingQueue.add(packet);
@@ -1023,8 +1011,10 @@ public class ClientCnxn {
             return;
         }
         authInfo.add(new AuthData(scheme, auth));
-        queuePacket(new RequestHeader(-4, OpCode.auth), null, new AuthPacket(0,
-                scheme, auth), null, null, null, null, null, null);
+        Packet packet = new Packet();
+        packet.requestHeader = new RequestHeader(-4, OpCode.auth);
+        packet.request = new AuthPacket(0, scheme, auth);
+        queuePacket(packet);
     }
 
     States getState() {

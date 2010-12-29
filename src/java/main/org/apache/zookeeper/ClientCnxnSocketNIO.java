@@ -97,7 +97,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         if (sockKey.isWritable()) {
             synchronized (outgoingQueue) {
                 if (!outgoingQueue.isEmpty()) {
-                    ByteBuffer pbb = outgoingQueue.getFirst().bb;
+                    ByteBuffer pbb = outgoingQueue.getFirst().getAsByteBuffer();
                     sock.write(pbb);
                     if (!pbb.hasRemaining()) {
                         sentCount++;

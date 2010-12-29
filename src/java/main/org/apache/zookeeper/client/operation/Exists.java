@@ -9,22 +9,21 @@ import org.apache.zookeeper.proto.ExistsRequest;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.SetDataResponse;
 import org.apache.zookeeper.client.WatchRegistration;
-import org.apache.zookeeper.common.Path;
 
 public class Exists extends Operation {
 	private boolean watching = false;
 	private Watcher watcher = null;
 	private Stat stat;
 	
-	public Exists(Path path) {
+	public Exists(String path) {
 		super(path);
 	}
 	
-	public Exists(Path path, boolean watch) {
+	public Exists(String path, boolean watch) {
 		this(path);
 		this.watching = watch;
 	}
-	public Exists(Path path, Watcher watcher) {
+	public Exists(String path, Watcher watcher) {
 		this(path);
 		this.watcher = watcher;
 		this.watching = true;
@@ -35,11 +34,10 @@ public class Exists extends Operation {
 	}
 
 	@Override
-	public Record createRequest(ChrootPathTranslator chroot) {
-		String serverPath = chroot.toServer(path).toString();
+	public Record createRequest() {
 		ExistsRequest request = new ExistsRequest();
 		
-		request.setPath(serverPath);
+		request.setPath(path);
 		request.setWatch(watcher != null);
 		
 		return request;		
@@ -51,7 +49,7 @@ public class Exists extends Operation {
 	}
 
 	@Override
-	public void receiveResponse(ChrootPathTranslator chroot, Record response) {
+	public void receiveResponse(Record response) {
 		if(response == null)
 		{
 			stat = null;
@@ -77,9 +75,9 @@ public class Exists extends Operation {
 	
 	// Return a ExistsWatchRegistration object, if there is a order for watching
 	@Override
-	public org.apache.zookeeper.client.Exists getWatchRegistration(String serverPath) {
+	public WatchRegistration.Exists getWatchRegistration() {
 		if(watching) {
-			return new WatchRegistration.Exists(watcher, serverPath);
+			return new WatchRegistration.Exists(watcher, path);
 		}
 		return null;	
 	}

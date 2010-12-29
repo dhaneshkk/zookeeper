@@ -3,13 +3,19 @@ package org.apache.zookeeper.client.operation;
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.client.WatchRegistration;
+import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.proto.ReplyHeader;
 
 public abstract class Operation {
 	protected String path;
 	
-	protected Operation(String path) {
+	protected Operation(String path, boolean isSequential) {
+	    PathUtils.validatePath(path, isSequential);
 		this.path = path;
+	}
+	
+	protected Operation(String path) {
+	    this(path, false);
 	}
 	
 	public String getPath() {

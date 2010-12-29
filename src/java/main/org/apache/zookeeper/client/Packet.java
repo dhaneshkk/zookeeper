@@ -8,6 +8,7 @@ import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.AsyncCallback;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
@@ -17,16 +18,14 @@ import org.apache.zookeeper.proto.RequestHeader;
  */
 public class Packet {
     private static final Logger LOG = Logger.getLogger(Packet.class);
-    
+
     public RequestHeader requestHeader;
 
     public ReplyHeader replyHeader;
 
-    Record request;
+    public Record request;
 
     public Record response;
-
-    ByteBuffer bb;
 
     /** Client's view of the path (may differ due to chroot) **/
     public String clientPath;
@@ -40,35 +39,42 @@ public class Packet {
     public Object ctx;
 
     public WatchRegistration watchRegistration;
+    
+    public Packet(){};
 
-    public Packet(RequestHeader requestHeader, ReplyHeader replyHeader, Record request,
-            Record response, WatchRegistration watchRegistration) {
+    public Packet(RequestHeader requestHeader, ReplyHeader replyHeader,
+            Record request, Record response, WatchRegistration watchRegistration) {
         this.requestHeader = requestHeader;
         this.replyHeader = replyHeader;
         this.request = request;
         this.response = response;
-
-        try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            BinaryOutputArchive boa = BinaryOutputArchive.getArchive(baos);
-            boa.writeInt(-1, "len"); // We'll fill this in later
-            if (requestHeader != null) {
-                requestHeader.serialize(boa, "header");
-            }
-            if (request instanceof ConnectRequest) {
-                request.serialize(boa, "connect");
-            } else if (request != null) {
-                request.serialize(boa, "request");
-            }
-            baos.close();
-            this.bb = ByteBuffer.wrap(baos.toByteArray());
-            this.bb.putInt(this.bb.capacity() - 4);
-            this.bb.rewind();
-        } catch (IOException e) {
-            LOG.warn("Ignoring unexpected exception", e);
-        }
-
         this.watchRegistration = watchRegistration;
+    }
+
+    public ByteBuffer getAsByteBuffer() throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        BinaryOutputArchive boa = BinaryOutputArchive.getArchive(baos);
+        boa.writeInt(-1, "len"); // We'll fill this in later
+        if (requestHeader != null) {
+            requestHeader.serialize(boa, "header");
+        }
+        if (request instanceof ConnectRequest) {
+            request.serialize(boa, "connect");
+        } else if (request != null) {
+            request.serialize(boa, "request");
+        }
+        baos.close();
+
+        ByteBuffer bb = ByteBuffer.wrap(baos.toByteArray());
+        bb.putInt(bb.capacity() - 4);
+        bb.rewind();
+
+        return bb;
+    }
+
+    public boolean isOrdered() {
+        return requestHeader.getType() != OpCode.ping
+                && requestHeader.getType() != OpCode.auth;
     }
 
     @Override
