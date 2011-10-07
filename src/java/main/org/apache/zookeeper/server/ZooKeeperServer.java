@@ -298,32 +298,12 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
     }
 
+    @Override
     public void expire(Session session) {
         long sessionId = session.getSessionId();
         LOG.info("Expiring session 0x" + Long.toHexString(sessionId)
                 + ", timeout of " + session.getTimeout() + "ms exceeded");
         close(sessionId);
-    }
-
-    public static class MissingSessionException extends IOException {
-        private static final long serialVersionUID = 7467414635467261007L;
-
-        public MissingSessionException(String msg) {
-            super(msg);
-        }
-    }
-
-    void touch(ServerCnxn cnxn) throws MissingSessionException {
-        if (cnxn == null) {
-            return;
-        }
-        long id = cnxn.getSessionId();
-        int to = cnxn.getSessionTimeout();
-        if (!sessionTracker.touchSession(id, to)) {
-            throw new MissingSessionException(
-                    "No session with sessionid 0x" + Long.toHexString(id)
-                    + " exists, probably expired and removed");
-        }
     }
 
     protected void registerJMX() {
@@ -582,6 +562,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         closeSession(cnxn.getSessionId());
     }
 
+    @Override
     public long getServerId() {
         return 0;
     }
@@ -613,22 +594,20 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 }
             }
         }
-        try {
-            touch(si.cnxn);
-            boolean validpacket = Request.isValid(si.type);
-            if (validpacket) {
-                firstProcessor.processRequest(si);
-                if (si.cnxn != null) {
-                    incInProcess();
-                }
-            } else {
-                LOG.warn("Dropping packet at server of type " + si.type);
-                // if invalid packet drop the packet.
+
+        if (si.cnxn != null && !sessionTracker.touchSession(
+                si.cnxn.getSessionId(), si.cnxn.getSessionTimeout())) {
+            LOG.debug("Dropping request: No session with sessionid 0x{} exists,"
+                        + " probably expired and removed",
+                        Long.toHexString(si.cnxn.getSessionId()));
+        } else if (Request.isValid(si.type)) {
+            firstProcessor.processRequest(si);
+            if (si.cnxn != null) {
+                incInProcess();
             }
-        } catch (MissingSessionException e) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Dropping request: " + e.getMessage());
-            }
+        } else {
+            LOG.warn("Dropping packet at server of type " + si.type);
+            // if invalid packet drop the packet.
         }
     }
 
@@ -664,7 +643,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * return the last proceesed id from the
      * datatree
      */
-    public long getLastProcessedZxid() {
+    @Override
+	public long getLastProcessedZxid() {
         return zkDb.getDataTreeLastProcessedZxid();
     }
 
@@ -673,6 +653,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * in the queue, which havent been
      * processed yet
      */
+    @Override
     public long getOutstandingRequests() {
         return getInProcess();
     }
@@ -727,6 +708,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return this.txnLogFactory;
     }
 
+    @Override
     public String getState() {
         return "standalone";
     }
