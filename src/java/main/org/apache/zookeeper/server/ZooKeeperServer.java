@@ -42,8 +42,8 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.SessionExpiredException;
 import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.data.ACL;
-import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.common.AccessControlList;
+import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.jmx.MBeanRegistry;
 import org.apache.zookeeper.proto.AuthPacket;
@@ -56,6 +56,7 @@ import org.apache.zookeeper.proto.SetSASLResponse;
 import org.apache.zookeeper.server.ServerCnxn.CloseRequestException;
 import org.apache.zookeeper.server.SessionTracker.Session;
 import org.apache.zookeeper.server.SessionTracker.SessionExpirer;
+import org.apache.zookeeper.server.auth.AccessControl;
 import org.apache.zookeeper.server.auth.AuthenticationProvider;
 import org.apache.zookeeper.server.auth.ProviderRegistry;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
@@ -89,6 +90,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     private FileTxnSnapLog txnLogFactory = null;
     private ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
     private ZKDatabase zkDb;
+    final AccessControl accessControl = AccessControl.create(!System.getProperty("zookeeper.skipACL", "no").equals("yes"));
     protected long hzxid = 0;
     public final static Exception ok = new Exception("No prob");
     protected RequestProcessor firstProcessor;
@@ -420,8 +422,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * and FinalRP.
      */
     static class ChangeRecord {
-        ChangeRecord(long zxid, String path, StatPersisted stat, int childCount,
-                List<ACL> acl) {
+        ChangeRecord(long zxid, String path, StatPersisted stat, int childCount, AccessControlList acl) {
             this.zxid = zxid;
             this.path = path;
             this.stat = stat;
@@ -437,15 +438,14 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
         int childCount;
 
-        List<ACL> acl; /* Make sure to create a new object when changing */
+        AccessControlList acl;
 
         ChangeRecord duplicate(long zxid) {
             StatPersisted stat = new StatPersisted();
             if (this.stat != null) {
                 DataTree.copyStatPersisted(this.stat, stat);
             }
-            return new ChangeRecord(zxid, path, stat, childCount,
-                    acl == null ? new ArrayList<ACL>() : new ArrayList<ACL>(acl));
+            return new ChangeRecord(zxid, path, stat, childCount, acl);
         }
     }
 
@@ -563,7 +563,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @param bb
      */
     private void submitRequest(ServerCnxn cnxn, long sessionId, OpCode type,
-            int xid, ByteBuffer bb, List<Id> authInfo) {
+            int xid, ByteBuffer bb, List<Identifier> authInfo) {
         Request si = new Request(cnxn, sessionId, xid, type, bb, authInfo);
         submitRequest(si);
     }
@@ -865,7 +865,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 if (saslServer.isComplete()) {
                     String authorizationID = saslServer.getAuthorizationID();
                     LOG.info("adding SASL authorization for authorizationID: " + authorizationID);
-                    cnxn.addAuthInfo(new Id("sasl",authorizationID));
+                    cnxn.addAuthInfo(new Identifier("sasl",authorizationID));
                 }
             }
             catch (SaslException e) {

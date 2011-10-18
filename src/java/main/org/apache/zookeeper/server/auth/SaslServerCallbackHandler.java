@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.zookeeper.common.AccessControlList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.security.auth.callback.Callback;
@@ -92,7 +93,7 @@ public class SaslServerCallbackHandler implements CallbackHandler {
     }
 
     private void handlePasswordCallback(PasswordCallback pc) {
-        if ("super".equals(this.userName) && System.getProperty(SYSPROP_SUPER_PASSWORD) != null) {
+        if (AccessControlList.SUPER.equals(this.userName) && System.getProperty(SYSPROP_SUPER_PASSWORD) != null) {
             // superuser: use Java system property for password, if available.
             pc.setPassword(System.getProperty(SYSPROP_SUPER_PASSWORD).toCharArray());
         } else if (credentials.containsKey(userName) ) {

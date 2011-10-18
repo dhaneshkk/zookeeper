@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.Version;
 import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
 import org.apache.zookeeper.proto.WatcherEvent;
@@ -110,7 +110,7 @@ public class NIOServerCnxn extends ServerCnxn {
         sock.socket().setSoLinger(false, -1);
         InetAddress addr = ((InetSocketAddress) sock.socket()
                 .getRemoteSocketAddress()).getAddress();
-        authInfo.add(new Id("ip", addr.getHostAddress()));
+        authInfo.add(new Identifier("ip", addr.getHostAddress()));
         sk.interestOps(SelectionKey.OP_READ);
     }
 

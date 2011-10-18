@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.jute.Record;
+import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.proto.CheckVersionRequest;
@@ -134,13 +135,13 @@ public class ZooDefs {
         /**
          * This Id represents anyone.
          */
-        public final Id ANYONE_ID_UNSAFE = new Id("world", "anyone");
+        public final Id ANYONE_ID_UNSAFE = new Id(AccessControlList.WORLD, AccessControlList.ANYONE);
 
         /**
          * This Id is only usable to set ACLs. It will get substituted with the
          * Id's the client authenticated with.
          */
-        public final Id AUTH_IDS = new Id("auth", "");
+        public final Id AUTH_IDS = new Id(AccessControlList.AUTH, "");
 
         /**
          * This is a completely open ACL .

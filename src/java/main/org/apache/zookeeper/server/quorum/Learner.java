@@ -40,6 +40,7 @@ import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.ServerCnxn;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
@@ -169,7 +170,7 @@ public class Learner {
         }
         oa.close();
         QuorumPacket qp = new QuorumPacket(Leader.REQUEST, -1, baos
-                .toByteArray(), request.authInfo);
+                .toByteArray(), Identifier.toJuteIdList(request.authInfo));
         writePacket(qp, true);
     }
 

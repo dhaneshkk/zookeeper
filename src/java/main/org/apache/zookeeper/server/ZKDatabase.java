@@ -40,7 +40,7 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.data.ACL;
+import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
@@ -343,7 +343,7 @@ public class ZKDatabase {
      * @param aclL the long for which to get the acl
      * @return the acl corresponding to this long entry
      */
-    public List<ACL> convertLong(Long aclL) {
+    public AccessControlList convertLong(Long aclL) {
         return dataTree.convertLong(aclL);
     }
 
@@ -380,7 +380,7 @@ public class ZKDatabase {
      * @return the acl list for this path
      * @throws NoNodeException
      */
-    public List<ACL> getACL(String path, Stat stat) throws NoNodeException {
+    public AccessControlList getACL(String path, Stat stat) throws NoNodeException {
         return dataTree.getACL(path, stat);
     }
 

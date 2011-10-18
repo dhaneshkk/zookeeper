@@ -38,6 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException.SessionExpiredException;
 import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.server.ByteBufferInputStream;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.quorum.Leader.Proposal;
@@ -432,10 +433,11 @@ public class LearnerHandler extends Thread {
                     OpCode type = OpCode.fromInt(bb.getInt());
                     bb = bb.slice();
                     Request si;
+                    List<Identifier> authInfo = Identifier.fromJuteIdList(qp.getAuthinfo());
                     if(type == OpCode.sync){
-                        si = new LearnerSyncRequest(this, sessionId, cxid, type, bb, qp.getAuthinfo());
+                        si = new LearnerSyncRequest(this, sessionId, cxid, type, bb, authInfo);
                     } else {
-                        si = new Request(null, sessionId, cxid, type, bb, qp.getAuthinfo());
+                        si = new Request(null, sessionId, cxid, type, bb, authInfo);
                     }
                     si.setOwner(this);
                     leader.zk.submitRequest(si);

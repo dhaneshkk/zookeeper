@@ -34,7 +34,7 @@ import org.apache.jute.Record;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
 
@@ -43,11 +43,10 @@ import org.apache.zookeeper.proto.RequestHeader;
  * to the server.
  */
 public abstract class ServerCnxn implements Stats, Watcher {
-    // This is just an arbitrary object to represent requests issued by
-    // (aka owned by) this class
+    // This is just an arbitrary object to represent requests issued by (aka owned by) this class
     final public static Object me = new Object();
 
-    protected ArrayList<Id> authInfo = new ArrayList<Id>();
+    protected ArrayList<Identifier> authInfo = new ArrayList<Identifier>();
 
     /**
      * If the client is of old version, we don't send r-o mode info to it.
@@ -73,18 +72,14 @@ public abstract class ServerCnxn implements Stats, Watcher {
     abstract void setSessionId(long sessionId);
 
     /** auth info for the cnxn, returns an unmodifyable list */
-    public List<Id> getAuthInfo() {
+    public List<Identifier> getAuthInfo() {
         return Collections.unmodifiableList(authInfo);
     }
 
-    public void addAuthInfo(Id id) {
-        if (authInfo.contains(id) == false) {
+    public void addAuthInfo(Identifier id) {
+        if (!authInfo.contains(id)) {
             authInfo.add(id);
         }
-    }
-
-    public boolean removeAuthInfo(Id id) {
-        return authInfo.remove(id);
     }
 
     abstract void sendBuffer(ByteBuffer closeConn);

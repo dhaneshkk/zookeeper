@@ -27,11 +27,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.MultiResponse;
-import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.SessionMovedException;
-import org.apache.zookeeper.data.ACL;
+import org.apache.zookeeper.common.AccessControlList;
+import org.apache.zookeeper.common.AccessControlList.Permission;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.CreateResponse;
 import org.apache.zookeeper.proto.ExistsRequest;
@@ -218,9 +218,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 synchronized(n) {
                     aclL = n.acl;
                 }
-                PrepRequestProcessor.checkACL(zks, zks.getZKDatabase().convertLong(aclL),
-                        ZooDefs.Perms.READ,
-                        request.authInfo);
+                zks.accessControl.check(zks.getZKDatabase().convertLong(aclL), Permission.READ, request.authInfo);
                 Stat stat = new Stat();
                 byte b[] = zks.getZKDatabase().getData(getDataRequest.getPath(), stat,
                         getDataRequest.getWatch() ? cnxn : null);
@@ -241,9 +239,9 @@ public class FinalRequestProcessor implements RequestProcessor {
             case getACL: {
                 GetACLRequest getACLRequest = (GetACLRequest)request.deserializeRequestRecord();
                 Stat stat = new Stat();
-                List<ACL> acl =
+                AccessControlList acl =
                     zks.getZKDatabase().getACL(getACLRequest.getPath(), stat);
-                rsp = new GetACLResponse(acl, stat);
+                rsp = new GetACLResponse(acl.toJuteACL(), stat);
                 break;
             }
             case getChildren: {
@@ -257,9 +255,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                     aclG = n.acl;
 
                 }
-                PrepRequestProcessor.checkACL(zks, zks.getZKDatabase().convertLong(aclG),
-                        ZooDefs.Perms.READ,
-                        request.authInfo);
+                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.authInfo);
                 List<String> children = zks.getZKDatabase().getChildren(
                         getChildrenRequest.getPath(), null, getChildrenRequest
                                 .getWatch() ? cnxn : null);
@@ -277,9 +273,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 synchronized(n) {
                     aclG = n.acl;
                 }
-                PrepRequestProcessor.checkACL(zks, zks.getZKDatabase().convertLong(aclG),
-                        ZooDefs.Perms.READ,
-                        request.authInfo);
+                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.authInfo);
                 List<String> children = zks.getZKDatabase().getChildren(
                         getChildren2Request.getPath(), stat, getChildren2Request
                                 .getWatch() ? cnxn : null);

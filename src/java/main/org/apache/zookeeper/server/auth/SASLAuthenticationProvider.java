@@ -19,6 +19,7 @@
 package org.apache.zookeeper.server.auth;
 
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.server.ServerCnxn;
 
 public class SASLAuthenticationProvider implements AuthenticationProvider {
@@ -27,21 +28,19 @@ public class SASLAuthenticationProvider implements AuthenticationProvider {
         return "sasl";
     }
 
-    public KeeperException.Code
-        handleAuthentication(ServerCnxn cnxn, byte[] authData)
+    public KeeperException.Code handleAuthentication(ServerCnxn cnxn, byte[] authData)
     {
         // Should never call this: SASL authentication is negotiated at session initiation.
         // TODO: consider substituting current implementation of direct ClientCnxn manipulation with
         // a call to this method (SASLAuthenticationProvider:handleAuthentication()) at session initiation.
         return KeeperException.Code.AUTHFAILED;
-
     }
 
-    public boolean matches(String id,String aclExpr) {
+    public boolean matches(String id, String aclExpr) {
         if (System.getProperty("zookeeper.superUser") != null) {
-            return (id.equals(System.getProperty("zookeeper.superUser")) || id.equals(aclExpr));
+            return id.equals(System.getProperty("zookeeper.superUser")) || id.equals(aclExpr);
         }
-        return (id.equals("super") || id.equals(aclExpr));
+        return id.equals(AccessControlList.SUPER) || id.equals(aclExpr);
     }
 
     public boolean isAuthenticated() {
@@ -56,7 +55,6 @@ public class SASLAuthenticationProvider implements AuthenticationProvider {
         // Use the KerberosName(id) constructor to define validity:
         // if KerberosName(id) throws IllegalArgumentException, then id is invalid.
         // otherwise, it is valid.
-        //
         try {
             new KerberosName(id);
             return true;
@@ -65,6 +63,4 @@ public class SASLAuthenticationProvider implements AuthenticationProvider {
             return false;
         }
    }
-
-
 }

@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -39,13 +38,12 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.MultiTransactionRecord;
 import org.apache.zookeeper.Op;
-import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.common.ValidPath;
-import org.apache.zookeeper.data.ACL;
-import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.common.AccessControlList.Permission;
 import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.proto.CreateRequest;
 import org.apache.zookeeper.proto.DeleteRequest;
@@ -53,8 +51,6 @@ import org.apache.zookeeper.proto.SetACLRequest;
 import org.apache.zookeeper.proto.SetDataRequest;
 import org.apache.zookeeper.proto.CheckVersionRequest;
 import org.apache.zookeeper.server.ZooKeeperServer.ChangeRecord;
-import org.apache.zookeeper.server.auth.AuthenticationProvider;
-import org.apache.zookeeper.server.auth.ProviderRegistry;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.DeleteTxn;
@@ -236,41 +232,6 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
         }
     }
 
-    static void checkACL(ZooKeeperServer zks, List<ACL> acl, int perm,
-            List<Id> ids) throws KeeperException.NoAuthException {
-        if (skipACL) {
-            return;
-        }
-        if (acl == null || acl.size() == 0) {
-            return;
-        }
-        for (Id authId : ids) {
-            if (authId.getScheme().equals("super")) {
-                return;
-            }
-        }
-        for (ACL a : acl) {
-            Id id = a.getId();
-            if ((a.getPerms() & perm) != 0) {
-                if (id.getScheme().equals("world")
-                        && id.getId().equals("anyone")) {
-                    return;
-                }
-                AuthenticationProvider ap = ProviderRegistry.getProvider(id
-                        .getScheme());
-                if (ap != null) {
-                    for (Id authId : ids) {
-                        if (authId.getScheme().equals(id.getScheme())
-                                && ap.matches(authId.getId(), id.getId())) {
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-        throw new KeeperException.NoAuthException();
-    }
-
     /**
      * This method will be called inside the ProcessRequestThread, which is a
      * singleton, so there will be a single thread calling this code.
@@ -297,14 +258,12 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                             Long.toHexString(request.sessionId));
                     throw e;
                 }
-                List<ACL> listACL = removeDuplicates(createRequest.getAcl());
-                if (!fixupACL(request.authInfo, listACL)) {
-                    throw new KeeperException.InvalidACLException(path);
-                }
 
+                AccessControlList acl = zks.accessControl.fixup(request.authInfo,
+                        AccessControlList.fromJuteACL(createRequest.getAcl()), path);
                 ChangeRecord parentRecord = getRecordForPath(path.getParent());
 
-                checkACL(zks, parentRecord.acl, ZooDefs.Perms.CREATE, request.authInfo);
+                zks.accessControl.check(parentRecord.acl, Permission.CREATE, request.authInfo);
                 int parentCVersion = parentRecord.stat.getCversion();
                 CreateMode createMode = CreateMode.fromFlag(createRequest.getFlags());
                 if (createMode.isSequential()) {
@@ -322,7 +281,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     throw new KeeperException.NoChildrenForEphemeralsException(path);
                 }
                 int newCversion = parentRecord.stat.getCversion()+1;
-                request.setTxn(new CreateTxn(path.toString(), createRequest.getData(), listACL,
+                request.setTxn(new CreateTxn(path.toString(), createRequest.getData(), acl.toJuteACL(),
                         createMode.isEphemeral(), newCversion));
                 StatPersisted s = new StatPersisted();
                 if (createMode.isEphemeral()) {
@@ -332,7 +291,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 parentRecord.childCount++;
                 parentRecord.stat.setCversion(newCversion);
                 addChangeRecord(parentRecord);
-                addChangeRecord(new ChangeRecord(request.getHdr().getZxid(), path.toString(), s, 0, listACL));
+                addChangeRecord(new ChangeRecord(request.getHdr().getZxid(), path.toString(), s, 0, acl));
                 break;
             case delete:
                 DeleteRequest deleteRequest = (DeleteRequest)record;
@@ -344,7 +303,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
 
                 parentRecord = getRecordForPath(path.getParent());
                 ChangeRecord nodeRecord = getRecordForPath(path);
-                checkACL(zks, parentRecord.acl, ZooDefs.Perms.DELETE, request.authInfo);
+                zks.accessControl.check(parentRecord.acl, Permission.DELETE, request.authInfo);
                 checkAndIncVersion(nodeRecord.stat.getVersion(), deleteRequest.getVersion(), path);
                 if (nodeRecord.childCount > 0) {
                     throw new KeeperException.NotEmptyException(path);
@@ -359,7 +318,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 SetDataRequest setDataRequest = (SetDataRequest)record;
                 path = new Path(setDataRequest.getPath());
                 nodeRecord = getRecordForPath(path);
-                checkACL(zks, nodeRecord.acl, ZooDefs.Perms.WRITE, request.authInfo);
+                zks.accessControl.check(nodeRecord.acl, Permission.WRITE, request.authInfo);
                 int newVersion = checkAndIncVersion(nodeRecord.stat.getVersion(), setDataRequest.getVersion(), path);
                 request.setTxn(new SetDataTxn(path.toString(), setDataRequest.getData(), newVersion));
                 nodeRecord = nodeRecord.duplicate(request.getHdr().getZxid());
@@ -369,14 +328,12 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             case setACL:
                 SetACLRequest setAclRequest = (SetACLRequest)record;
                 path = new Path(setAclRequest.getPath());
-                listACL = removeDuplicates(setAclRequest.getAcl());
-                if (!fixupACL(request.authInfo, listACL)) {
-                    throw new KeeperException.InvalidACLException(path);
-                }
+                acl = zks.accessControl.fixup(request.authInfo,
+                        AccessControlList.fromJuteACL(setAclRequest.getAcl()), path);
                 nodeRecord = getRecordForPath(path);
-                checkACL(zks, nodeRecord.acl, ZooDefs.Perms.ADMIN, request.authInfo);
+                zks.accessControl.check(nodeRecord.acl, Permission.ADMIN, request.authInfo);
                 newVersion = checkAndIncVersion(nodeRecord.stat.getAversion(), setAclRequest.getVersion(), path);
-                request.setTxn(new SetACLTxn(path.toString(), listACL, newVersion));
+                request.setTxn(new SetACLTxn(path.toString(), acl.toJuteACL(), newVersion));
                 nodeRecord = nodeRecord.duplicate(request.getHdr().getZxid());
                 nodeRecord.stat.setAversion(newVersion);
                 addChangeRecord(nodeRecord);
@@ -416,7 +373,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 CheckVersionRequest checkVersionRequest = (CheckVersionRequest)record;
                 path = new Path(checkVersionRequest.getPath());
                 nodeRecord = getRecordForPath(path);
-                checkACL(zks, nodeRecord.acl, ZooDefs.Perms.READ, request.authInfo);
+                zks.accessControl.check(nodeRecord.acl, Permission.READ, request.authInfo);
                 request.setTxn(new CheckVersionTxn(path.toString(), checkAndIncVersion(nodeRecord.stat.getVersion(),
                         checkVersionRequest.getVersion(), path)));
                 break;
@@ -557,84 +514,6 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
         }
         request.zxid = zks.getZxid();
         nextProcessor.processRequest(request);
-    }
-
-    private List<ACL> removeDuplicates(List<ACL> acl) {
-
-        ArrayList<ACL> retval = new ArrayList<ACL>();
-        Iterator<ACL> it = acl.iterator();
-        while (it.hasNext()) {
-            ACL a = it.next();
-            if (retval.contains(a) == false) {
-                retval.add(a);
-            }
-        }
-        return retval;
-    }
-
-
-    /**
-     * This method checks out the acl making sure it isn't null or empty,
-     * it has valid schemes and ids, and expanding any relative ids that
-     * depend on the requestor's authentication information.
-     *
-     * @param authInfo list of ACL IDs associated with the client connection
-     * @param acl list of ACLs being assigned to the node (create or setACL operation)
-     * @return
-     */
-    private boolean fixupACL(List<Id> authInfo, List<ACL> acl) {
-        if (skipACL) {
-            return true;
-        }
-        if (acl == null || acl.size() == 0) {
-            return false;
-        }
-
-        Iterator<ACL> it = acl.iterator();
-        LinkedList<ACL> toAdd = null;
-        while (it.hasNext()) {
-            ACL a = it.next();
-            Id id = a.getId();
-            if (id.getScheme().equals("world") && id.getId().equals("anyone")) {
-                // wide open
-            } else if (id.getScheme().equals("auth")) {
-                // This is the "auth" id, so we have to expand it to the
-                // authenticated ids of the requestor
-                it.remove();
-                if (toAdd == null) {
-                    toAdd = new LinkedList<ACL>();
-                }
-                boolean authIdValid = false;
-                for (Id cid : authInfo) {
-                    AuthenticationProvider ap =
-                        ProviderRegistry.getProvider(cid.getScheme());
-                    if (ap == null) {
-                        LOG.error("Missing AuthenticationProvider for "
-                                + cid.getScheme());
-                    } else if (ap.isAuthenticated()) {
-                        authIdValid = true;
-                        toAdd.add(new ACL(a.getPerms(), cid));
-                    }
-                }
-                if (!authIdValid) {
-                    return false;
-                }
-            } else {
-                AuthenticationProvider ap = ProviderRegistry.getProvider(id.getScheme());
-                if (ap == null) {
-                    return false;
-                }
-                if (!ap.isValid(id.getId())) {
-                    return false;
-                }
-            }
-        }
-        if (toAdd != null) {
-            for (ACL a : toAdd) {
-                acl.add(a);
-            }
-        }
-        return acl.size() > 0;
     }
 
     public void processRequest(Request request) {

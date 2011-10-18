@@ -48,8 +48,8 @@ import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher.Event;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
-import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
@@ -122,14 +122,14 @@ public class DataTree {
      * this is map from longs to acl's. It saves acl's being stored for each
      * datanode.
      */
-    private final Map<Long, List<ACL>> longKeyMap =
-        new HashMap<Long, List<ACL>>();
+    private final Map<Long, AccessControlList> longKeyMap =
+        new HashMap<Long, AccessControlList>();
 
     /**
      * this a map from acls to long.
      */
-    private final Map<List<ACL>, Long> aclKeyMap =
-        new HashMap<List<ACL>, Long>();
+    private final Map<AccessControlList, Long> aclKeyMap =
+        new HashMap<AccessControlList, Long>();
 
     /**
      * these are the number of acls that we have in the datatree
@@ -163,17 +163,17 @@ public class DataTree {
      * @param acls
      * @return a list of longs that map to the acls
      */
-    public synchronized Long convertAcls(List<ACL> acls) {
-        if (acls == null)
+    public synchronized Long convertAcls(AccessControlList acl) {
+        if (acl == null || acl == AccessControlList.EMPTY)
             return -1L;
         // get the value from the map
-        Long ret = aclKeyMap.get(acls);
+        Long ret = aclKeyMap.get(acl);
         // could not find the map
         if (ret != null)
             return ret;
         long val = incrementIndex();
-        longKeyMap.put(val, acls);
-        aclKeyMap.put(acls, val);
+        longKeyMap.put(val, acl);
+        aclKeyMap.put(acl, val);
         return val;
     }
 
@@ -184,17 +184,17 @@ public class DataTree {
      *            the list of longs
      * @return a list of ACLs that map to longs
      */
-    public synchronized List<ACL> convertLong(Long longVal) {
+    public synchronized AccessControlList convertLong(Long longVal) {
         if (longVal == null)
             return null;
         if (longVal == -1L)
-            return Ids.OPEN_ACL_UNSAFE;
-        List<ACL> acls = longKeyMap.get(longVal);
-        if (acls == null) {
+            return AccessControlList.OPEN_ACL_UNSAFE;
+        AccessControlList acl = longKeyMap.get(longVal);
+        if (acl == null) {
             LOG.error("ERROR: ACL not available for long " + longVal);
             throw new RuntimeException("Failed to fetch acls for " + longVal);
         }
-        return acls;
+        return acl;
     }
 
     public Collection<Long> getSessions() {
@@ -440,7 +440,7 @@ public class DataTree {
             }
             parent.stat.setCversion(parentCVersion);
             parent.stat.setPzxid(zxid);
-            Long longval = convertAcls(acl);
+            Long longval = convertAcls(AccessControlList.fromJuteACL(acl));
             DataNode child = new DataNode(data, longval, stat);
             parent.addChild(childName);
             nodes.put(path, child);
@@ -652,13 +652,13 @@ public class DataTree {
         }
         synchronized (n) {
             n.stat.setAversion(version);
-            n.acl = convertAcls(acl);
+            n.acl = convertAcls(AccessControlList.fromJuteACL(acl));
             n.copyStat(stat);
             return stat;
         }
     }
 
-    public List<ACL> getACL(String path, Stat stat)
+    public AccessControlList getACL(String path, Stat stat)
             throws KeeperException.NoNodeException {
         DataNode n = nodes.get(path);
         if (n == null) {
@@ -666,7 +666,7 @@ public class DataTree {
         }
         synchronized (n) {
             n.copyStat(stat);
-            return new ArrayList<ACL>(convertLong(n.acl));
+            return convertLong(n.acl);
         }
     }
 
@@ -1031,7 +1031,7 @@ public class DataTree {
         }
     }
 
-    private void deserializeList(Map<Long, List<ACL>> longKeyMap,
+    private void deserializeList(Map<Long, AccessControlList> longKeyMap,
             InputArchive ia) throws IOException {
         int i = ia.readInt("map");
         while (i > 0) {
@@ -1047,19 +1047,20 @@ public class DataTree {
                 aclList.add(acl);
                 j.incr();
             }
-            longKeyMap.put(val, aclList);
-            aclKeyMap.put(aclList, val);
+            AccessControlList accessControlList = AccessControlList.fromJuteACL(aclList);
+            longKeyMap.put(val, accessControlList);
+            aclKeyMap.put(accessControlList, val);
             i--;
         }
     }
 
-    private synchronized void serializeList(Map<Long, List<ACL>> longKeyMap,
+    private synchronized void serializeList(Map<Long, AccessControlList> longKeyMap,
             OutputArchive oa) throws IOException {
         oa.writeInt(longKeyMap.size(), "map");
-        Set<Map.Entry<Long, List<ACL>>> set = longKeyMap.entrySet();
-        for (Map.Entry<Long, List<ACL>> val : set) {
+        Set<Map.Entry<Long, AccessControlList>> set = longKeyMap.entrySet();
+        for (Map.Entry<Long, AccessControlList> val : set) {
             oa.writeLong(val.getKey(), "long");
-            List<ACL> aclList = val.getValue();
+            List<ACL> aclList = val.getValue().toJuteACL();
             oa.startVector(aclList, "acls");
             for (ACL acl : aclList) {
                 acl.serialize(oa, "acl");

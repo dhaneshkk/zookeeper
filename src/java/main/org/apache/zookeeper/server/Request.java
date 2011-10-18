@@ -25,7 +25,7 @@ import java.util.List;
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.txn.TxnHeader;
 
 /**
@@ -52,7 +52,7 @@ public class Request {
 
     public long zxid = -1;
 
-    public final List<Id> authInfo;
+    public final List<Identifier> authInfo;
 
     public final long createTime = System.currentTimeMillis();
 
@@ -60,7 +60,7 @@ public class Request {
 
     private KeeperException e;
 
-    public Request(ServerCnxn cnxn, long sessionId, int xid, OpCode type, ByteBuffer bb, List<Id> authInfo) {
+    public Request(ServerCnxn cnxn, long sessionId, int xid, OpCode type, ByteBuffer bb, List<Identifier> authInfo) {
         this.cnxn = cnxn;
         this.sessionId = sessionId;
         this.cxid = xid;
