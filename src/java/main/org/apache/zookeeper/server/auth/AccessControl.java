@@ -14,8 +14,10 @@ import org.slf4j.LoggerFactory;
 public class AccessControl {
     private static final Logger LOG = LoggerFactory.getLogger(AccessControl.class);
 
+    public final ProviderRegistry providerRegistry = new ProviderRegistry();
+
     public void check(AccessControlList acl, Permission perm, List<Identifier> ids) throws KeeperException.NoAuthException {
-        if(!acl.hasPermission(perm.toInt(), ids)) throw new KeeperException.NoAuthException();
+        if(!acl.hasPermission(providerRegistry, perm.toInt(), ids)) throw new KeeperException.NoAuthException();
     }
 
     /**
@@ -32,7 +34,7 @@ public class AccessControl {
             throw new KeeperException.InvalidACLException(path);
         }
 
-        return acl.fixup(authInfo, path, LOG);
+        return acl.fixup(providerRegistry, authInfo, path, LOG);
     }
 
     public static AccessControl create(boolean enabled) {

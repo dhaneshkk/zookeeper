@@ -58,7 +58,6 @@ import org.apache.zookeeper.server.SessionTracker.Session;
 import org.apache.zookeeper.server.SessionTracker.SessionExpirer;
 import org.apache.zookeeper.server.auth.AccessControl;
 import org.apache.zookeeper.server.auth.AuthenticationProvider;
-import org.apache.zookeeper.server.auth.ProviderRegistry;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.ReadOnlyZooKeeperServer;
 import javax.security.sasl.SaslException;
@@ -797,7 +796,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             AuthPacket authPacket = new AuthPacket();
             ByteBufferInputStream.byteBuffer2Record(incomingBuffer, authPacket);
             String scheme = authPacket.getScheme();
-            AuthenticationProvider ap = ProviderRegistry.getProvider(scheme);
+            AuthenticationProvider ap = accessControl.providerRegistry.getProvider(scheme);
             Code authReturn = KeeperException.Code.AUTHFAILED;
             if(ap != null) {
                 try {
@@ -819,7 +818,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 if (ap == null) {
                     LOG.warn("No authentication provider for scheme: "
                             + scheme + " has "
-                            + ProviderRegistry.listProviders());
+                            + accessControl.providerRegistry.listProviders());
                 } else {
                     LOG.warn("Authentication failed for scheme: " + scheme);
                 }

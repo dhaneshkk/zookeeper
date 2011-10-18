@@ -40,7 +40,7 @@ public class AccessControlList {
         }
     }
 
-    public boolean hasPermission(int perm, List<Identifier> ids) throws KeeperException.NoAuthException {
+    public boolean hasPermission(ProviderRegistry providerRegistry, int perm, List<Identifier> ids) throws KeeperException.NoAuthException {
         if (entries.isEmpty()) {
             return true;
         }
@@ -55,7 +55,7 @@ public class AccessControlList {
                     return true;
                 }
                 // maybe call this method with a Map of available Providers?
-                AuthenticationProvider ap = ProviderRegistry.getProvider(entry.scheme);
+                AuthenticationProvider ap = providerRegistry.getProvider(entry.scheme);
                 if (ap != null) {
                     for (Identifier authId : ids) {
                         if(entry.matches(authId, ap)) return true;
@@ -78,7 +78,7 @@ public class AccessControlList {
      * @return
      * @throws InvalidACLException
      */
-    public AccessControlList fixup(List<Identifier> authInfo, Path path, Logger log) throws InvalidACLException {
+    public AccessControlList fixup(ProviderRegistry providerRegistry, List<Identifier> authInfo, Path path, Logger log) throws InvalidACLException {
         Builder builder = new Builder();
         for (Entry entry : entries) {
             if (entry.matchesAnybody()) {
@@ -89,7 +89,7 @@ public class AccessControlList {
 
                 boolean authIdValid = false;
                 for (Identifier cid : authInfo) {
-                    AuthenticationProvider ap = ProviderRegistry.getProvider(cid.getScheme());
+                    AuthenticationProvider ap = providerRegistry.getProvider(cid.getScheme());
                     if (ap == null) {
                         log.error("Missing AuthenticationProvider for " + cid.getScheme());
                     } else if (ap.isAuthenticated()) {
@@ -101,7 +101,7 @@ public class AccessControlList {
                     throw new KeeperException.InvalidACLException(path);
                 }
             } else {
-                AuthenticationProvider ap = ProviderRegistry.getProvider(entry.scheme);
+                AuthenticationProvider ap = providerRegistry.getProvider(entry.scheme);
                 if (ap == null) {
                     throw new KeeperException.InvalidACLException(path);
                 }

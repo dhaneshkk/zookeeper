@@ -20,58 +20,82 @@ package org.apache.zookeeper.server.auth;
 
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.zookeeper.server.ZooKeeperServer;
 
-public class ProviderRegistry {
+public final class ProviderRegistry {
+    public static final String PROPERTIES_PREFIX = "zookeeper.authProvider.";
+
     private static final Logger LOG = LoggerFactory.getLogger(ProviderRegistry.class);
 
-    private static boolean initialized = false;
-    private static HashMap<String, AuthenticationProvider> authenticationProviders =
+    private final Map<String, AuthenticationProvider> authenticationProviders =
         new HashMap<String, AuthenticationProvider>();
 
-    public static void initialize() {
-        synchronized (ProviderRegistry.class) {
-            if (initialized)
-                return;
-            IPAuthenticationProvider ipp = new IPAuthenticationProvider();
-            DigestAuthenticationProvider digp = new DigestAuthenticationProvider();
-            authenticationProviders.put(ipp.getScheme(), ipp);
-            authenticationProviders.put(digp.getScheme(), digp);
-            Enumeration<Object> en = System.getProperties().keys();
-            while (en.hasMoreElements()) {
-                String k = (String) en.nextElement();
-                if (k.startsWith("zookeeper.authProvider.")) {
-                    String className = System.getProperty(k);
-                    try {
-                        Class<?> c = ZooKeeperServer.class.getClassLoader()
-                                .loadClass(className);
-                        AuthenticationProvider ap = (AuthenticationProvider) c
-                                .newInstance();
-                        authenticationProviders.put(ap.getScheme(), ap);
-                    } catch (Exception e) {
-                        LOG.warn("Problems loading " + className,e);
-                    }
-                }
+    public ProviderRegistry() {
+        register(new IPAuthenticationProvider());
+        register(new DigestAuthenticationProvider());
+
+        ClassLoader classLoader = ZooKeeperServer.class.getClassLoader();
+        for(String key : new PropertyKeyIterator()) {
+            String className = System.getProperty(key);
+            try {
+                Class<?> c = classLoader.loadClass(className);
+                register((AuthenticationProvider) c.newInstance());
+
+            } catch (Exception e) {
+                LOG.warn("Problems loading " + className, e);
             }
-            initialized = true;
         }
     }
 
-    public static AuthenticationProvider getProvider(String scheme) {
-        if(!initialized)
-            initialize();
+    private void register(AuthenticationProvider ap) {
+        authenticationProviders.put(ap.getScheme(), ap);
+    }
+
+    public AuthenticationProvider getProvider(String scheme) {
         return authenticationProviders.get(scheme);
     }
 
-    public static String listProviders() {
+    public String listProviders() {
         StringBuilder sb = new StringBuilder();
         for(String s: authenticationProviders.keySet()) {
-        sb.append(s + " ");
-}
+            sb.append(s + " ");
+        }
         return sb.toString();
+    }
+
+    private static class PropertyKeyIterator implements Iterator<String>, Iterable<String> {
+        private final Enumeration<Object> en = System.getProperties().keys();
+        private String next;
+
+        @Override
+        public boolean hasNext() {
+            while(en.hasMoreElements()) {
+                String key = (String) en.nextElement();
+                if(key.startsWith(PROPERTIES_PREFIX)) {
+                    next = key;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public String next() {
+            return next;
+        }
+
+        @Override
+        public void remove() {}
+
+        @Override
+        public Iterator<String> iterator() {
+            return this;
+        }
     }
 }
