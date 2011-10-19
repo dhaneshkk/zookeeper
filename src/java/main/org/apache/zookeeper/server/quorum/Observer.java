@@ -25,6 +25,7 @@ import org.apache.jute.Record;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.ObserverBean;
 import org.apache.zookeeper.server.Request;
+import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.TxnHeader;
 
@@ -118,8 +119,8 @@ public class Observer extends Learner{
         case Leader.INFORM:
             TxnHeader hdr = new TxnHeader();
             Record txn = SerializeUtils.deserializeTxn(qp.getData(), hdr);
-            Request request = new Request (hdr.getClientId(),  hdr.getCxid(), OpCode.fromInt(hdr.getType()),
-                    hdr, txn, 0);
+            Meta meta = new Meta(hdr.getClientId(), hdr.getCxid(), -1l, OpCode.fromInt(hdr.getType()));
+            Request request = new Request(meta, null, hdr, txn);
             ObserverZooKeeperServer obs = (ObserverZooKeeperServer)zk;
             obs.commitRequest(request);
             break;

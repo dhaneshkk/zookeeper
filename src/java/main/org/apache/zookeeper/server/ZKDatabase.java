@@ -43,6 +43,7 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
+import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog.PlayBackListener;
 import org.apache.zookeeper.server.quorum.Leader;
@@ -204,7 +205,8 @@ public class ZKDatabase {
     public long loadDataBase() throws IOException {
         PlayBackListener listener=new PlayBackListener(){
             public void onTxnLoaded(TxnHeader hdr,Record txn){
-                Request r = new Request(0, hdr.getCxid(), OpCode.fromInt(hdr.getType()), hdr, txn, hdr.getZxid());
+                Meta meta = new Meta(0, hdr.getCxid(), hdr.getZxid(), OpCode.fromInt(hdr.getType()));
+                Request r = new Request(meta, null, hdr, txn);
                 addCommittedProposal(r);
             }
         };
@@ -229,8 +231,8 @@ public class ZKDatabase {
                 minCommittedLog = committedLog.getFirst().packet.getZxid();
             }
             if (committedLog.isEmpty()) {
-                minCommittedLog = request.zxid;
-                maxCommittedLog = request.zxid;
+                minCommittedLog = request.getMeta().getZxid();
+                maxCommittedLog = request.getMeta().getZxid();
             }
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -244,8 +246,7 @@ public class ZKDatabase {
             } catch (IOException e) {
                 LOG.error("This really should be impossible", e);
             }
-            QuorumPacket pp = new QuorumPacket(Leader.PROPOSAL, request.zxid,
-                    baos.toByteArray(), null);
+            QuorumPacket pp = new QuorumPacket(Leader.PROPOSAL, request.getMeta().getZxid(), baos.toByteArray(), null);
             Proposal p = new Proposal();
             p.packet = pp;
             p.request = request;

@@ -242,7 +242,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
      * @param record
      */
     protected void pRequest2Txn(OpCode type, long zxid, Request request, Record record) throws KeeperException {
-        request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), type.getInt()));
+        request.setHdr(new TxnHeader(request.getMeta().getSessionId(), request.getMeta().getCxid(), zxid, zks.getTime(), type.getInt()));
         Path path;
 
         switch (type) {
@@ -255,15 +255,15 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                                          CreateMode.fromFlag(createRequest.getFlags()).isSequential());
                 } catch(KeeperException.InvalidPathException e) {
                     LOG.info("Invalid path " + createRequest.getPath() + " with session 0x" +
-                            Long.toHexString(request.sessionId));
+                            Long.toHexString(request.getMeta().getSessionId()));
                     throw e;
                 }
 
-                AccessControlList acl = zks.accessControl.fixup(request.authInfo,
+                AccessControlList acl = zks.accessControl.fixup(request.getMeta().getAuthInfo(),
                         AccessControlList.fromJuteACL(createRequest.getAcl()), path);
                 ChangeRecord parentRecord = getRecordForPath(path.getParent());
 
-                zks.accessControl.check(parentRecord.acl, Permission.CREATE, request.authInfo);
+                zks.accessControl.check(parentRecord.acl, Permission.CREATE, request.getMeta().getAuthInfo());
                 int parentCVersion = parentRecord.stat.getCversion();
                 CreateMode createMode = CreateMode.fromFlag(createRequest.getFlags());
                 if (createMode.isSequential()) {
@@ -285,7 +285,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                         createMode.isEphemeral(), newCversion));
                 StatPersisted s = new StatPersisted();
                 if (createMode.isEphemeral()) {
-                    s.setEphemeralOwner(request.sessionId);
+                    s.setEphemeralOwner(request.getMeta().getSessionId());
                 }
                 parentRecord = parentRecord.duplicate(request.getHdr().getZxid());
                 parentRecord.childCount++;
@@ -303,7 +303,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
 
                 parentRecord = getRecordForPath(path.getParent());
                 ChangeRecord nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(parentRecord.acl, Permission.DELETE, request.authInfo);
+                zks.accessControl.check(parentRecord.acl, Permission.DELETE, request.getMeta().getAuthInfo());
                 checkAndIncVersion(nodeRecord.stat.getVersion(), deleteRequest.getVersion(), path);
                 if (nodeRecord.childCount > 0) {
                     throw new KeeperException.NotEmptyException(path);
@@ -318,7 +318,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 SetDataRequest setDataRequest = (SetDataRequest)record;
                 path = new Path(setDataRequest.getPath());
                 nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(nodeRecord.acl, Permission.WRITE, request.authInfo);
+                zks.accessControl.check(nodeRecord.acl, Permission.WRITE, request.getMeta().getAuthInfo());
                 int newVersion = checkAndIncVersion(nodeRecord.stat.getVersion(), setDataRequest.getVersion(), path);
                 request.setTxn(new SetDataTxn(path.toString(), setDataRequest.getData(), newVersion));
                 nodeRecord = nodeRecord.duplicate(request.getHdr().getZxid());
@@ -328,10 +328,10 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             case setACL:
                 SetACLRequest setAclRequest = (SetACLRequest)record;
                 path = new Path(setAclRequest.getPath());
-                acl = zks.accessControl.fixup(request.authInfo,
+                acl = zks.accessControl.fixup(request.getMeta().getAuthInfo(),
                         AccessControlList.fromJuteACL(setAclRequest.getAcl()), path);
                 nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(nodeRecord.acl, Permission.ADMIN, request.authInfo);
+                zks.accessControl.check(nodeRecord.acl, Permission.ADMIN, request.getMeta().getAuthInfo());
                 newVersion = checkAndIncVersion(nodeRecord.stat.getAversion(), setAclRequest.getVersion(), path);
                 request.setTxn(new SetACLTxn(path.toString(), acl.toJuteACL(), newVersion));
                 nodeRecord = nodeRecord.duplicate(request.getHdr().getZxid());
@@ -343,8 +343,8 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 int to = request.request.getInt();
                 request.setTxn(new CreateSessionTxn(to));
                 request.request.rewind();
-                zks.sessionTracker.addSession(request.sessionId, to);
-                zks.setOwner(request.sessionId, request.getOwner());
+                zks.sessionTracker.addSession(request.getMeta().getSessionId(), to);
+                zks.setOwner(request.getMeta().getSessionId(), request.getMeta().getOwner());
                 break;
             case closeSession:
                 // We don't want to do this check since the session expiration thread
@@ -352,13 +352,13 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 // this request is the last of the session so it should be ok
                 //zks.sessionTracker.checkSession(request.sessionId, request.getOwner());
                 Set<String> es = zks.getZKDatabase()
-                        .getEphemerals(request.sessionId);
+                        .getEphemerals(request.getMeta().getSessionId());
                 synchronized (zks.outstandingChanges) {
                     for (ChangeRecord c : zks.outstandingChanges) {
                         if (c.stat == null) {
                             // Doing a delete
                             es.remove(c.path);
-                        } else if (c.stat.getEphemeralOwner() == request.sessionId) {
+                        } else if (c.stat.getEphemeralOwner() == request.getMeta().getSessionId()) {
                             es.add(c.path);
                         }
                     }
@@ -367,13 +367,13 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     }
                 }
                 LOG.info("Processed session termination for sessionid: 0x"
-                        + Long.toHexString(request.sessionId));
+                        + Long.toHexString(request.getMeta().getSessionId()));
                 break;
             case check:
                 CheckVersionRequest checkVersionRequest = (CheckVersionRequest)record;
                 path = new Path(checkVersionRequest.getPath());
                 nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(nodeRecord.acl, Permission.READ, request.authInfo);
+                zks.accessControl.check(nodeRecord.acl, Permission.READ, request.getMeta().getAuthInfo());
                 request.setTxn(new CheckVersionTxn(path.toString(), checkAndIncVersion(nodeRecord.stat.getVersion(),
                         checkVersionRequest.getVersion(), path)));
                 break;
@@ -401,17 +401,17 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
         request.setTxn(null);
 
         try {
-            if(request.type != OpCode.createSession && request.type != OpCode.closeSession) {
-                zks.sessionTracker.checkSession(request.sessionId, request.getOwner());
+            if(request.getMeta().getType() != OpCode.createSession && request.getMeta().getType() != OpCode.closeSession) {
+                zks.sessionTracker.checkSession(request.getMeta().getSessionId(), request.getMeta().getOwner());
             }
 
-            switch (request.type) {
+            switch (request.getMeta().getType()) {
             case create:
             case delete:
             case setData:
             case setACL:
             case check:
-                pRequest2Txn(request.type, zks.getNextZxid(), request, request.deserializeRequestRecord());
+                pRequest2Txn(request.getMeta().getType(), zks.getNextZxid(), request, request.deserializeRequestRecord());
                 break;
             case multi:
                 MultiTransactionRecord multiRequest = (MultiTransactionRecord) request.deserializeRequestRecord();
@@ -470,14 +470,14 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     txns.add(new Txn(type.getInt(), bb.array()));
                 }
 
-                request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), request.type.getInt()));
+                request.setHdr(new TxnHeader(request.getMeta().getSessionId(), request.getMeta().getCxid(), zxid, zks.getTime(), request.getMeta().getType().getInt()));
                 request.setTxn(new MultiTxn(txns));
                 break;
 
             //create/close session don't require request record
             case createSession:
             case closeSession:
-                pRequest2Txn(request.type, zks.getNextZxid(), request, null);
+                pRequest2Txn(request.getMeta().getType(), zks.getNextZxid(), request, null);
                 break;
             }
         } catch (KeeperException e) {
@@ -512,8 +512,9 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 request.setTxn(new ErrorTxn(Code.MARSHALLINGERROR.intValue()));
             }
         }
-        request.zxid = zks.getZxid();
-        nextProcessor.processRequest(request);
+        Request newRequest = new Request(request.getMeta().cloneWithZxid(zks.getZxid()), request.request, request.getHdr(), request.getTxn());
+        newRequest.setException(request.getException());
+        nextProcessor.processRequest(newRequest);
     }
 
     public void processRequest(Request request) {

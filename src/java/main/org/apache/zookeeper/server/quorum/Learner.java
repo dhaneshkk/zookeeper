@@ -157,9 +157,9 @@ public class Learner {
     void request(Request request) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream oa = new DataOutputStream(baos);
-        oa.writeLong(request.sessionId);
-        oa.writeInt(request.cxid);
-        oa.writeInt(request.type.getInt());
+        oa.writeLong(request.getMeta().getSessionId());
+        oa.writeInt(request.getMeta().getCxid());
+        oa.writeInt(request.getMeta().getType().getInt());
         if (request.request != null) {
             request.request.rewind();
             int len = request.request.remaining();
@@ -169,8 +169,9 @@ public class Learner {
             oa.write(b);
         }
         oa.close();
-        QuorumPacket qp = new QuorumPacket(Leader.REQUEST, -1, baos
-                .toByteArray(), Identifier.toJuteIdList(request.authInfo));
+
+        QuorumPacket qp = new QuorumPacket(Leader.REQUEST, -1, baos.toByteArray(),
+                Identifier.toJuteIdList(request.getMeta().getAuthInfo()));
         writePacket(qp, true);
     }
 

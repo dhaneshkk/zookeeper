@@ -62,11 +62,11 @@ public class ReadOnlyRequestProcessor extends Thread implements RequestProcessor
                 }
 
                 // filter out write requests, only read requests pass
-                if(!request.type.isReadOnlyOp()) {
-                    ReplyHeader hdr = new ReplyHeader(request.cxid, zks.getZKDatabase()
+                if(!request.getMeta().getType().isReadOnlyOp()) {
+                    ReplyHeader hdr = new ReplyHeader(request.getMeta().getCxid(), zks.getZKDatabase()
                             .getDataTreeLastProcessedZxid(), Code.NOTREADONLY.intValue());
                     try {
-                        request.cnxn.sendResponse(hdr, null, null);
+                        request.getMeta().getCnxn().sendResponse(hdr, null, null);
                     } catch (IOException e) {
                         LOG.error("IO exception while sending response", e);
                     }

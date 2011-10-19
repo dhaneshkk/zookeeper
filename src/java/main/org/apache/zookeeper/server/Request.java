@@ -33,60 +33,25 @@ import org.apache.zookeeper.txn.TxnHeader;
  * RequestProcessors. There are various pieces of information that is tacked
  * onto the request as it is processed.
  */
-public class Request {
-    public final static Request requestOfDeath = new Request(null, 0, 0, null, null, null);
+public final class Request {
+    public final static Request requestOfDeath = new Request(Meta.EMPTY, null, null, null);
 
-    public final long sessionId;
-
-    public final int cxid;
-
-    public final OpCode type;
+    private final Meta meta;
 
     public final ByteBuffer request;
-
-    public final ServerCnxn cnxn;
 
     private TxnHeader hdr;
 
     private Record txn;
 
-    public long zxid = -1;
-
-    public final List<Identifier> authInfo;
-
-    public final long createTime = System.currentTimeMillis();
-
-    private Object owner;
-
     private KeeperException e;
 
-    public Request(ServerCnxn cnxn, long sessionId, int xid, OpCode type, ByteBuffer bb, List<Identifier> authInfo) {
-        this.cnxn = cnxn;
-        this.sessionId = sessionId;
-        this.cxid = xid;
-        this.type = type;
-        this.request = bb;
-        this.authInfo = authInfo;
-    }
-
-    public Request(long sessionId, int xid, OpCode type, TxnHeader hdr, Record txn, long zxid) {
-        this.sessionId = sessionId;
-        this.cxid = xid;
-        this.type = type;
+    public Request(Meta meta, ByteBuffer request, TxnHeader hdr, Record txn) {
+        if(meta == null) throw new IllegalArgumentException("null given to Request constructor.");
+        this.meta = meta;
+        this.request = request;
         this.hdr = hdr;
         this.txn = txn;
-        this.zxid = zxid;
-        this.request = null;
-        this.cnxn = null;
-        this.authInfo = null;
-    }
-
-    public Object getOwner() {
-        return owner;
-    }
-
-    public void setOwner(Object owner) {
-        this.owner = owner;
     }
 
     public TxnHeader getHdr() {
@@ -101,6 +66,8 @@ public class Request {
         return txn;
     }
 
+    public Meta getMeta() { return meta; }
+
     public void setTxn(Record txn) {
         this.txn = txn;
     }
@@ -108,9 +75,9 @@ public class Request {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("sessionid:0x").append(Long.toHexString(sessionId))
-            .append(" type:").append(type.longString)
-            .append(" cxid:0x").append(Long.toHexString(cxid))
+        sb.append("sessionid:0x").append(Long.toHexString(meta.getSessionId()))
+            .append(" type:").append(meta.getType().longString)
+            .append(" cxid:0x").append(Long.toHexString(meta.getCxid()))
             .append(" zxid:0x").append(Long.toHexString(hdr == null ?
                     -2 : hdr.getZxid()))
             .append(" txntype:").append(hdr == null ?
@@ -118,9 +85,9 @@ public class Request {
 
         // best effort to print the path assoc with this request
         String path = "n/a";
-        if (type != OpCode.createSession
-                && type != OpCode.setWatches
-                && type != OpCode.closeSession
+        if (meta.getType() != OpCode.createSession
+                && meta.getType() != OpCode.setWatches
+                && meta.getType() != OpCode.closeSession
                 && request != null
                 && request.remaining() >= 4)
         {
@@ -158,7 +125,7 @@ public class Request {
     public Record deserializeRequestRecord() throws IOException {
         Record requestRecord;
         try {
-            requestRecord = type.recordClass.newInstance();
+            requestRecord = meta.getType().recordClass.newInstance();
         } catch (InstantiationException e) {
             throw new RuntimeException(e);
         } catch (IllegalAccessException e) {
@@ -166,5 +133,53 @@ public class Request {
         }
         ByteBufferInputStream.byteBuffer2Record(request, requestRecord);
         return requestRecord;
+    }
+
+    public static final class Meta {
+        public static final Meta EMPTY = new Meta(0l, 0, -1l, null);
+        private final long sessionId;
+        private final int cxid;
+        private final long zxid;
+        private final OpCode type;
+        private final ServerCnxn cnxn;
+        private final List<Identifier> authInfo;
+        private final Object owner;
+        private final long createTime;
+
+        public Meta(long sessionId, int cxid, long zxid, OpCode type) {
+            this(sessionId, cxid, zxid, type, null, null, null);
+        }
+
+        public Meta(long sessionId, int cxid, long zxid, OpCode type, ServerCnxn cnxn, List<Identifier> authInfo, Object owner) {
+            this(sessionId, cxid, zxid, type, cnxn, authInfo, owner, System.currentTimeMillis());
+        }
+
+        public Meta(long sessionId, int cxid, long zxid, OpCode type, ServerCnxn cnxn, List<Identifier> authInfo, Object owner, long createTime) {
+            this.sessionId = sessionId;
+            this.cxid = cxid;
+            this.zxid = zxid;
+            this.type = type;
+            this.cnxn = cnxn;
+            this.authInfo = authInfo;
+            this.owner = owner;
+            this.createTime = createTime;
+        }
+
+        public Meta cloneWithError() {
+            return new Meta(sessionId, cxid, zxid, OpCode.error, cnxn, authInfo, owner, createTime);
+        }
+
+        public Meta cloneWithZxid(long newZxid) {
+            return new Meta(sessionId, cxid, newZxid, type, cnxn, authInfo, owner, createTime);
+        }
+
+        public long getSessionId() { return sessionId; }
+        public int getCxid() { return cxid; }
+        public long getZxid() { return zxid; }
+        public OpCode getType() { return type; }
+        public ServerCnxn getCnxn() { return cnxn; }
+        public List<Identifier> getAuthInfo() { return authInfo; }
+        public Object getOwner() { return owner; }
+        public long getCreateTime() { return createTime; }
     }
 }

@@ -51,6 +51,7 @@ import org.apache.zookeeper.proto.SetWatches;
 import org.apache.zookeeper.proto.SyncRequest;
 import org.apache.zookeeper.proto.SyncResponse;
 import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
+import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.ZooKeeperServer.ChangeRecord;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.ErrorTxn;
@@ -81,12 +82,10 @@ public class FinalRequestProcessor implements RequestProcessor {
         ProcessTxnResult rc = null;
         synchronized (zks.outstandingChanges) {
             while (!zks.outstandingChanges.isEmpty()
-                    && zks.outstandingChanges.get(0).zxid <= request.zxid) {
+                    && zks.outstandingChanges.get(0).zxid <= request.getMeta().getZxid()) {
                 ChangeRecord cr = zks.outstandingChanges.remove(0);
-                if (cr.zxid < request.zxid) {
-                    LOG.warn("Zxid outstanding "
-                            + cr.zxid
-                            + " is less than current " + request.zxid);
+                if (cr.zxid < request.getMeta().getZxid()) {
+                    LOG.warn("Zxid outstanding {} is less than current {}", cr.zxid, request.getMeta().getZxid());
                 }
                 if (zks.outstandingChangesForPath.get(cr.path) == cr) {
                     zks.outstandingChangesForPath.remove(cr.path);
@@ -94,18 +93,15 @@ public class FinalRequestProcessor implements RequestProcessor {
             }
             if (request.getHdr() != null) {
                 rc = zks.getZKDatabase().processTxn(request.getHdr(), request.getTxn());
-                if (request.type == OpCode.createSession) {
+                if (request.getMeta().getType() == OpCode.createSession) {
                     if (request.getTxn() instanceof CreateSessionTxn) {
                         CreateSessionTxn cst = (CreateSessionTxn) request.getTxn();
-                        zks.sessionTracker.addSession(request.sessionId, cst
-                                .getTimeOut());
+                        zks.sessionTracker.addSession(request.getMeta().getSessionId(), cst.getTimeOut());
                     } else {
-                        LOG.warn("*****>>>>> Got "
-                                + request.getTxn().getClass() + " "
-                                + request.getTxn().toString());
+                        LOG.warn("*****>>>>> Got {} {}", request.getTxn().getClass(), request.getTxn());
                     }
-                } else if (request.type == OpCode.closeSession) {
-                    zks.sessionTracker.removeSession(request.sessionId);
+                } else if (request.getMeta().getType() == OpCode.closeSession) {
+                    zks.sessionTracker.removeSession(request.getMeta().getSessionId());
                 }
                 zks.getZKDatabase().addCommittedProposal(request);
             }
@@ -115,20 +111,20 @@ public class FinalRequestProcessor implements RequestProcessor {
             ServerCnxnFactory scxn = zks.getServerCnxnFactory();
             // this might be possible since
             // we might just be playing diffs from the leader
-            if (scxn != null && request.cnxn == null) {
+            if (scxn != null && request.getMeta().getCnxn() == null) {
                 // calling this if we have the cnxn results in the client's
                 // close session response being lost - we've already closed
                 // the session/socket here before we can send the closeSession
                 // in the switch block below
-                scxn.closeSession(request.sessionId);
+                scxn.closeSession(request.getMeta().getSessionId());
                 return;
             }
         }
 
-        if (request.cnxn == null) {
+        if (request.getMeta().getCnxn() == null) {
             return;
         }
-        ServerCnxn cnxn = request.cnxn;
+        ServerCnxn cnxn = request.getMeta().getCnxn();
 
         zks.decInProcess();
         Code err = Code.OK;
@@ -147,16 +143,16 @@ public class FinalRequestProcessor implements RequestProcessor {
             if (LOG.isDebugEnabled()) {
                 LOG.debug("{}",request);
             }
-            switch (request.type) {
+            switch (request.getMeta().getType()) {
             case ping: {
-                updateStats(request);
+                updateStats(request.getMeta());
                 cnxn.sendResponse(new ReplyHeader(-2,
                         zks.getZKDatabase().getDataTreeLastProcessedZxid(), 0), null, "response");
                 return;
             }
             case createSession: {
-                updateStats(request);
-                zks.finishSessionInit(request.cnxn, true);
+                updateStats(request.getMeta());
+                zks.finishSessionInit(request.getMeta().getCnxn(), true);
                 return;
             }
             case multi: {
@@ -218,7 +214,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 synchronized(n) {
                     aclL = n.acl;
                 }
-                zks.accessControl.check(zks.getZKDatabase().convertLong(aclL), Permission.READ, request.authInfo);
+                zks.accessControl.check(zks.getZKDatabase().convertLong(aclL), Permission.READ, request.getMeta().getAuthInfo());
                 Stat stat = new Stat();
                 byte b[] = zks.getZKDatabase().getData(getDataRequest.getPath(), stat,
                         getDataRequest.getWatch() ? cnxn : null);
@@ -255,7 +251,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                     aclG = n.acl;
 
                 }
-                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.authInfo);
+                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.getMeta().getAuthInfo());
                 List<String> children = zks.getZKDatabase().getChildren(
                         getChildrenRequest.getPath(), null, getChildrenRequest
                                 .getWatch() ? cnxn : null);
@@ -273,7 +269,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 synchronized(n) {
                     aclG = n.acl;
                 }
-                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.authInfo);
+                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.getMeta().getAuthInfo());
                 List<String> children = zks.getZKDatabase().getChildren(
                         getChildren2Request.getPath(), stat, getChildren2Request
                                 .getWatch() ? cnxn : null);
@@ -309,13 +305,13 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
 
         ReplyHeader hdr =
-            new ReplyHeader(request.cxid, request.zxid, err.intValue());
+            new ReplyHeader(request.getMeta().getCxid(), request.getMeta().getZxid(), err.intValue());
 
-        updateStats(request);
+        updateStats(request.getMeta());
 
         try {
             cnxn.sendResponse(hdr, rsp, "response");
-            if (request.type == OpCode.closeSession) {
+            if (request.getMeta().getType() == OpCode.closeSession) {
                 cnxn.sendCloseSession();
             }
         } catch (IOException e) {
@@ -323,10 +319,11 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
     }
 
-    private void updateStats(Request request) {
-        zks.serverStats().updateLatency(request.createTime);
-        request.cnxn.updateStatsForResponse(request.cxid, request.zxid, request.type,
-                    request.createTime, System.currentTimeMillis());
+    void updateStats(Meta meta) {
+        zks.serverStats().updateLatency(meta.getCreateTime());
+        meta.getCnxn().updateStatsForResponse(meta.getCxid(),
+                meta.getZxid(), meta.getType(),
+                    meta.getCreateTime(), System.currentTimeMillis());
     }
 
     public void shutdown() {

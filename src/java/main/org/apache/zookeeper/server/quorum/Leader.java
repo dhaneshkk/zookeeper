@@ -89,8 +89,8 @@ public class Leader {
         new HashSet<LearnerHandler>();
 
     //Pending sync requests
-    public final HashMap<Long,List<LearnerSyncRequest>> pendingSyncs =
-        new HashMap<Long,List<LearnerSyncRequest>>();
+    public final HashMap<Long,List<Request>> pendingSyncs =
+        new HashMap<Long,List<Request>>();
 
     //Follower counter
     final AtomicLong followerCounter = new AtomicLong(-1);
@@ -521,7 +521,7 @@ public class Leader {
                 inform(p);
                 zk.commitProcessor.commit(p.request);
                 if(pendingSyncs.containsKey(zxid)){
-                    for(LearnerSyncRequest r: pendingSyncs.remove(zxid)) {
+                    for(Request r: pendingSyncs.remove(zxid)) {
                         sendSync(r);
                     }
                 }
@@ -572,7 +572,7 @@ public class Leader {
         public void processRequest(Request request) {
             next.processRequest(request);
             Proposal p = leader.toBeApplied.peek();
-            if (p != null && p.request != null && p.request.zxid == request.zxid) {
+            if (p != null && p.request != null && p.request.getMeta().getZxid() == request.getMeta().getZxid()) {
                 leader.toBeApplied.remove();
             }
         }
@@ -634,7 +634,7 @@ public class Leader {
      * @param proposal
      */
     public void inform(Proposal proposal) {
-        QuorumPacket qp = new QuorumPacket(Leader.INFORM, proposal.request.zxid,
+        QuorumPacket qp = new QuorumPacket(Leader.INFORM, proposal.request.getMeta().getZxid(),
                                             proposal.packet.getData(), null);
         sendObserverPacket(qp);
     }
@@ -669,8 +669,7 @@ public class Leader {
         } catch (IOException e) {
             LOG.warn("This really should be impossible", e);
         }
-        QuorumPacket pp = new QuorumPacket(Leader.PROPOSAL, request.zxid,
-                baos.toByteArray(), null);
+        QuorumPacket pp = new QuorumPacket(Leader.PROPOSAL, request.getMeta().getZxid(), baos.toByteArray(), null);
 
         Proposal p = new Proposal();
         p.packet = pp;
@@ -693,13 +692,13 @@ public class Leader {
      * @param r the request
      */
 
-    synchronized public void processSync(LearnerSyncRequest r){
+    synchronized public void processSync(Request r){
         if(outstandingProposals.isEmpty()){
             sendSync(r);
         } else {
-            List<LearnerSyncRequest> l = pendingSyncs.get(lastProposed);
+            List<Request> l = pendingSyncs.get(lastProposed);
             if (l == null) {
-                l = new ArrayList<LearnerSyncRequest>();
+                l = new ArrayList<Request>();
             }
             l.add(r);
             pendingSyncs.put(lastProposed, l);
@@ -713,9 +712,10 @@ public class Leader {
      * @param r
      */
 
-    public void sendSync(LearnerSyncRequest r){
+    public void sendSync(Request r){
         QuorumPacket qp = new QuorumPacket(Leader.SYNC, 0, null, null);
-        r.fh.queuePacket(qp);
+        LearnerHandler learnerHandler = (LearnerHandler)r.getMeta().getOwner();
+        learnerHandler.queuePacket(qp);
     }
 
     /**

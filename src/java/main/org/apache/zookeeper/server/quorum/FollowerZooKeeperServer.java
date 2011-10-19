@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.FinalRequestProcessor;
 import org.apache.zookeeper.server.Request;
+import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.SyncRequestProcessor;
 import org.apache.zookeeper.server.ZKDatabase;
@@ -86,9 +87,9 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
     LinkedBlockingQueue<Request> pendingTxns = new LinkedBlockingQueue<Request>();
 
     public void logRequest(TxnHeader hdr, Record txn) {
-        Request request = new Request(hdr.getClientId(), hdr.getCxid(), OpCode.fromInt(hdr.getType()), hdr, txn,
-                hdr.getZxid());
-        if ((request.zxid & 0xffffffffL) != 0) {
+        Meta meta = new Meta(hdr.getClientId(), hdr.getCxid(), hdr.getZxid(), OpCode.fromInt(hdr.getType()));
+        Request request = new Request(meta, null, hdr, txn);
+        if ((request.getMeta().getZxid() & 0xffffffffL) != 0) {
             pendingTxns.add(request);
         }
         syncProcessor.processRequest(request);
@@ -106,7 +107,7 @@ public class FollowerZooKeeperServer extends LearnerZooKeeperServer {
                     + " without seeing txn");
             return;
         }
-        long firstElementZxid = pendingTxns.element().zxid;
+        long firstElementZxid = pendingTxns.element().getMeta().getZxid();
         if (firstElementZxid != zxid) {
             LOG.error("Committing zxid 0x" + Long.toHexString(zxid)
                     + " but next pending txn 0x"

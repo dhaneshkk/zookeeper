@@ -88,14 +88,14 @@ public class CommitProcessor extends Thread implements RequestProcessor {
                          * properly.
                          */
                         if (nextPending != null
-                                && nextPending.sessionId == r.sessionId
-                                && nextPending.cxid == r.cxid) {
+                                && nextPending.getMeta().getSessionId() == r.getMeta().getSessionId()
+                                && nextPending.getMeta().getCxid() == r.getMeta().getCxid()) {
                             // we want to send our version of the request.
                             // the pointer to the connection in the request
-                            nextPending.setHdr(r.getHdr());
-                            nextPending.setTxn(r.getTxn());
-                            nextPending.zxid = r.zxid;
-                            toProcess.add(nextPending);
+                            Request newRequest = new Request(nextPending.getMeta().cloneWithZxid(r.getMeta().getZxid()),
+                                    nextPending.request, r.getHdr(),r.getTxn());
+                            newRequest.setException(nextPending.getException());
+                            toProcess.add(newRequest);
                             nextPending = null;
                         } else {
                             // this request came from someone else so just send the commit packet
@@ -113,9 +113,9 @@ public class CommitProcessor extends Thread implements RequestProcessor {
                     // Process the next requests in the queuedRequests
                     while (nextPending == null && !queuedRequests.isEmpty()) {
                         Request request = queuedRequests.remove();
-                        if (request.type.isWriteOp()) {
+                        if (request.getMeta().getType().isWriteOp()) {
                             nextPending = request;
-                        } else if (request.type == OpCode.sync) {
+                        } else if (request.getMeta().getType() == OpCode.sync) {
                             if (matchSyncs) {
                                 nextPending = request;
                             } else {

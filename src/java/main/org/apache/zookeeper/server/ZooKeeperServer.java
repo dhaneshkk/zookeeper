@@ -53,6 +53,7 @@ import org.apache.zookeeper.proto.GetSASLRequest;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
 import org.apache.zookeeper.proto.SetSASLResponse;
+import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.ServerCnxn.CloseRequestException;
 import org.apache.zookeeper.server.SessionTracker.Session;
 import org.apache.zookeeper.server.SessionTracker.SessionExpirer;
@@ -562,8 +563,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @param bb
      */
     private void submitRequest(ServerCnxn cnxn, long sessionId, OpCode type,
-            int xid, ByteBuffer bb, List<Identifier> authInfo) {
-        Request si = new Request(cnxn, sessionId, xid, type, bb, authInfo);
+            int cxid, ByteBuffer bb, List<Identifier> authInfo) {
+        Meta meta = new Meta(sessionId, cxid, -1l, type, cnxn, authInfo, null);
+        Request si = new Request(meta, bb, null, null);
         submitRequest(si);
     }
 
@@ -583,19 +585,18 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             }
         }
 
-        if (si.cnxn != null && !sessionTracker.touchSession(
-                si.cnxn.getSessionId(), si.cnxn.getSessionTimeout())) {
-            LOG.debug("Dropping request: No session with sessionid 0x{} exists,"
-                        + " probably expired and removed",
-                        Long.toHexString(si.cnxn.getSessionId()));
-        } else if (si.type != OpCode.notification) {
+        ServerCnxn cnxn = si.getMeta().getCnxn();
+        if (cnxn != null && !sessionTracker.touchSession(cnxn.getSessionId(), cnxn.getSessionTimeout())) {
+            LOG.debug("No session with sessionid 0x{} exists, probably expired and removed. Dropping request.",
+                    Long.toHexString(cnxn.getSessionId()));
+        } else if (si.getMeta().getType() == OpCode.notification) {
+            LOG.warn("Dropping packet at server of type Notification");
+            // if invalid packet drop the packet.
+        } else {
             firstProcessor.processRequest(si);
-            if (si.cnxn != null) {
+            if (cnxn != null) {
                 incInProcess();
             }
-        } else {
-            LOG.warn("Dropping packet at server of type " + si.type);
-            // if invalid packet drop the packet.
         }
     }
 
@@ -838,9 +839,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                 cnxn.sendResponse(rh,rsp, "response"); // not sure about 3rd arg..what is it?
             }
             else {
-                Request si = new Request(cnxn, cnxn.getSessionId(), h.getXid(),
-                  OpCode.fromInt(h.getType()), incomingBuffer, cnxn.getAuthInfo());
-                si.setOwner(ServerCnxn.me);
+                Meta meta = new Meta(cnxn.getSessionId(), h.getXid(), -1l, OpCode.fromInt(h.getType()), cnxn, cnxn.getAuthInfo(), ServerCnxn.me);
+                Request si = new Request(meta, incomingBuffer, null, null);
                 submitRequest(si);
             }
         }

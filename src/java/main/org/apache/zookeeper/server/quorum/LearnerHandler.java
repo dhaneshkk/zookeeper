@@ -41,6 +41,7 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.server.ByteBufferInputStream;
 import org.apache.zookeeper.server.Request;
+import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.quorum.Leader.Proposal;
 import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
 import org.apache.zookeeper.server.util.ZxidUtils;
@@ -434,12 +435,8 @@ public class LearnerHandler extends Thread {
                     bb = bb.slice();
                     Request si;
                     List<Identifier> authInfo = Identifier.fromJuteIdList(qp.getAuthinfo());
-                    if(type == OpCode.sync){
-                        si = new LearnerSyncRequest(this, sessionId, cxid, type, bb, authInfo);
-                    } else {
-                        si = new Request(null, sessionId, cxid, type, bb, authInfo);
-                    }
-                    si.setOwner(this);
+                    Meta meta = new Meta(sessionId, cxid, -1l, type, null, authInfo, this);
+                    si = new Request(meta, bb, null, null);
                     leader.zk.submitRequest(si);
                     break;
                 default:

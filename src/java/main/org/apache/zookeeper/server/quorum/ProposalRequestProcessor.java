@@ -20,6 +20,7 @@ package org.apache.zookeeper.server.quorum;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.SyncRequestProcessor;
@@ -67,10 +68,10 @@ public class ProposalRequestProcessor implements RequestProcessor {
          * call processRequest on the next processor.
          */
 
-        if(request instanceof LearnerSyncRequest){
-            zks.getLeader().processSync((LearnerSyncRequest)request);
+        if(request.getMeta().getType() == OpCode.sync && request.getMeta().getOwner() instanceof LearnerHandler) {
+            zks.getLeader().processSync(request);
         } else {
-                nextProcessor.processRequest(request);
+            nextProcessor.processRequest(request);
             if (request.getHdr() != null) {
                 // We need to sync and get consensus on any transactions
                 zks.getLeader().propose(request);
