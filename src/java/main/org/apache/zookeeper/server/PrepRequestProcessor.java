@@ -340,10 +340,10 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 addChangeRecord(nodeRecord);
                 break;
             case createSession:
-                request.request.rewind();
-                int to = request.request.getInt();
+                request.getOriginalByteBuffer().rewind();
+                int to = request.getOriginalByteBuffer().getInt();
                 txn = new CreateSessionTxn(to);
-                request.request.rewind();
+                request.getOriginalByteBuffer().rewind();
                 zks.sessionTracker.addSession(request.getMeta().getSessionId(), to);
                 zks.setOwner(request.getMeta().getSessionId(), request.getMeta().getOwner());
                 break;
@@ -380,7 +380,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 break;
         }
         TxnHeader hdr = new TxnHeader(request.getMeta().getSessionId(), request.getMeta().getCxid(), zxid, zks.getTime(), type.getInt());
-        return new Request(request.getMeta().cloneWithZxid(zxid), request.request, hdr, txn);
+        return new Request(request.getMeta().cloneWithZxid(zxid), request.getOriginalByteBuffer(), hdr, txn);
     }
 
     private static int checkAndIncVersion(int currentVersion, int expectedVersion, Path path)
@@ -472,7 +472,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     txns.add(new Txn(type.getInt(), bb.array()));
                 }
 
-                newRequest = new Request(request.getMeta().cloneWithZxid(zxid), request.request,
+                newRequest = new Request(request.getMeta().cloneWithZxid(zxid), request.getOriginalByteBuffer(),
                         new TxnHeader(request.getMeta().getSessionId(), request.getMeta().getCxid(),
                                 zxid, zks.getTime(), request.getMeta().getType().getInt()),
                         new MultiTxn(txns)
@@ -498,7 +498,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             LOG.error("Failed to process " + request, e);
 
             StringBuilder sb = new StringBuilder();
-            ByteBuffer bb = request.request;
+            ByteBuffer bb = request.getOriginalByteBuffer();
             if(bb != null){
                 bb.rewind();
                 while (bb.hasRemaining()) {
@@ -521,7 +521,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
         Meta meta = request.getMeta().cloneWithZxid(zxid);
         TxnHeader hdr = new TxnHeader(meta.getSessionId(), meta.getCxid(), zxid, time, OpCode.error.getInt());
         Record txn = new ErrorTxn(errorCode.intValue());
-        return new Request(meta, request.request, hdr, txn);
+        return new Request(meta, request.getOriginalByteBuffer(), hdr, txn);
     }
 
     public void processRequest(Request request) {

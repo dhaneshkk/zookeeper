@@ -38,7 +38,7 @@ public final class Request {
 
     private final Meta meta;
 
-    public final ByteBuffer request;
+    private final ByteBuffer originalByteBuffer;
 
     private final TxnHeader hdr;
 
@@ -46,26 +46,21 @@ public final class Request {
 
     private KeeperException e;
 
-    public Request(Meta meta, ByteBuffer request, TxnHeader hdr, Record txn) {
+    public Request(Meta meta, ByteBuffer originalByteBuffer, TxnHeader hdr, Record txn) {
         if(meta == null) throw new IllegalArgumentException("null given to Request constructor.");
         this.meta = meta;
-        this.request = request;
+        this.originalByteBuffer = originalByteBuffer;
         this.hdr = hdr;
         this.txn = txn;
     }
 
-    public Request(Meta meta, ByteBuffer request) {
-        this(meta, request, null, null);
+    public Request(Meta meta, ByteBuffer originalByteBuffer) {
+        this(meta, originalByteBuffer, null, null);
     }
 
-    public TxnHeader getHdr() {
-        return hdr;
-    }
-
-    public Record getTxn() {
-        return txn;
-    }
-
+    public TxnHeader getHdr() { return hdr; }
+    public Record getTxn() { return txn; }
+    public ByteBuffer getOriginalByteBuffer() { return originalByteBuffer; }
     public Meta getMeta() { return meta; }
 
     @Override
@@ -74,22 +69,20 @@ public final class Request {
         sb.append("sessionid:0x").append(Long.toHexString(meta.getSessionId()))
             .append(" type:").append(meta.getType().longString)
             .append(" cxid:0x").append(Long.toHexString(meta.getCxid()))
-            .append(" zxid:0x").append(Long.toHexString(hdr == null ?
-                    -2 : hdr.getZxid()))
-            .append(" txntype:").append(hdr == null ?
-                    "unknown" : "" + hdr.getType());
+            .append(" zxid:0x").append(Long.toHexString(hdr == null ? -2 : hdr.getZxid()))
+            .append(" txntype:").append(hdr == null ? "unknown" : "" + hdr.getType());
 
         // best effort to print the path assoc with this request
         String path = "n/a";
         if (meta.getType() != OpCode.createSession
                 && meta.getType() != OpCode.setWatches
                 && meta.getType() != OpCode.closeSession
-                && request != null
-                && request.remaining() >= 4)
+                && originalByteBuffer != null
+                && originalByteBuffer.remaining() >= 4)
         {
             try {
                 // make sure we don't mess with request itself
-                ByteBuffer rbuf = request.asReadOnlyBuffer();
+                ByteBuffer rbuf = originalByteBuffer.asReadOnlyBuffer();
                 rbuf.clear();
                 int pathLen = rbuf.getInt();
                 // sanity check
@@ -127,7 +120,7 @@ public final class Request {
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }
-        ByteBufferInputStream.byteBuffer2Record(request, requestRecord);
+        ByteBufferInputStream.byteBuffer2Record(originalByteBuffer, requestRecord);
         return requestRecord;
     }
 

@@ -93,7 +93,7 @@ public class CommitProcessor extends Thread implements RequestProcessor {
                             // we want to send our version of the request.
                             // the pointer to the connection in the request
                             Request newRequest = new Request(nextPending.getMeta().cloneWithZxid(r.getMeta().getZxid()),
-                                    nextPending.request, r.getHdr(),r.getTxn());
+                                    nextPending.getOriginalByteBuffer(), r.getHdr(),r.getTxn());
                             newRequest.setException(nextPending.getException());
                             toProcess.add(newRequest);
                             nextPending = null;

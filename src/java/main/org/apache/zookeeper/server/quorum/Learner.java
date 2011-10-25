@@ -160,12 +160,12 @@ public class Learner {
         oa.writeLong(request.getMeta().getSessionId());
         oa.writeInt(request.getMeta().getCxid());
         oa.writeInt(request.getMeta().getType().getInt());
-        if (request.request != null) {
-            request.request.rewind();
-            int len = request.request.remaining();
+        if (request.getOriginalByteBuffer() != null) {
+            request.getOriginalByteBuffer().rewind();
+            int len = request.getOriginalByteBuffer().remaining();
             byte b[] = new byte[len];
-            request.request.get(b);
-            request.request.rewind();
+            request.getOriginalByteBuffer().get(b);
+            request.getOriginalByteBuffer().rewind();
             oa.write(b);
         }
         oa.close();

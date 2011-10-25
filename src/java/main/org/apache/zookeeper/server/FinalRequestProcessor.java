@@ -223,7 +223,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             }
             case setWatches: {
                 // XXX We really should NOT need this!!!!
-                request.request.rewind();
+                request.getOriginalByteBuffer().rewind();
                 SetWatches setWatches = (SetWatches)request.deserializeRequestRecord();
                 long relativeZxid = setWatches.getRelativeZxid();
                 zks.getZKDatabase().setWatches(relativeZxid,
@@ -295,7 +295,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             // error to the user
             LOG.error("Failed to process " + request, e);
             StringBuilder sb = new StringBuilder();
-            ByteBuffer bb = request.request;
+            ByteBuffer bb = request.getOriginalByteBuffer();
             bb.rewind();
             while (bb.hasRemaining()) {
                 sb.append(Integer.toHexString(bb.get() & 0xff));
