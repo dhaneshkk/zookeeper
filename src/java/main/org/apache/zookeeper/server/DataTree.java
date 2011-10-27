@@ -670,13 +670,7 @@ public class DataTree {
         }
     }
 
-    static public class ProcessTxnResult {
-        public long clientId;
-
-        public int cxid;
-
-        public long zxid;
-
+    static public final class ProcessTxnResult {
         public int err;
 
         public OpCode type;
@@ -687,45 +681,19 @@ public class DataTree {
 
         public List<ProcessTxnResult> multiResult;
 
-        /**
-         * Equality is defined as the clientId and the cxid being the same. This
-         * allows us to use hash tables to track completion of transactions.
-         *
-         * @see java.lang.Object#equals(java.lang.Object)
-         */
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof ProcessTxnResult) {
-                ProcessTxnResult other = (ProcessTxnResult) o;
-                return other.clientId == clientId && other.cxid == cxid;
-            }
-            return false;
-        }
-
-        /**
-         * See equals() to find the rational for how this hashcode is generated.
-         *
-         * @see ProcessTxnResult#equals(Object)
-         * @see java.lang.Object#hashCode()
-         */
-        @Override
-        public int hashCode() {
-            return (int) ((clientId ^ cxid) % Integer.MAX_VALUE);
-        }
-
+        // make sure this class is only instantiated from inside DataTree
+        private ProcessTxnResult(){}
     }
 
     public volatile long lastProcessedZxid = 0;
 
     public ProcessTxnResult processTxn(TxnHeader header, Record txn)
     {
-        ProcessTxnResult rc = new ProcessTxnResult();
+        final ProcessTxnResult rc = new ProcessTxnResult();
 
         String debug = "";
+        final long zxid = header.getZxid();
         try {
-            rc.clientId = header.getClientId();
-            rc.cxid = header.getCxid();
-            rc.zxid = header.getZxid();
             rc.type = OpCode.fromInt(header.getType());
             rc.err = 0;
             rc.multiResult = null;
@@ -846,8 +814,8 @@ public class DataTree {
          * case where the snapshot contains data ahead of the zxid associated
          * with the file.
          */
-        if (rc.zxid > lastProcessedZxid) {
-            lastProcessedZxid = rc.zxid;
+        if (zxid > lastProcessedZxid) {
+            lastProcessedZxid = zxid;
         }
         return rc;
     }
