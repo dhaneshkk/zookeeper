@@ -24,6 +24,7 @@ import org.apache.zookeeper.proto.CreateResponse;
 import org.apache.zookeeper.proto.MultiHeader;
 import org.apache.zookeeper.proto.SetDataResponse;
 import org.apache.zookeeper.proto.ErrorResponse;
+import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,10 +39,26 @@ import java.util.List;
  * with the corresponding operation in the original request list.
  */
 public class MultiResponse implements Record, Iterable<OpResult> {
-    private List<OpResult> results = new ArrayList<OpResult>();
+    private final List<OpResult> results;
 
-    public void add(OpResult x) {
-        results.add(x);
+    public MultiResponse() {
+        this.results = new ArrayList<OpResult>();
+    }
+
+    public MultiResponse(List<ProcessTxnResult> results) throws IOException {
+        this.results = new ArrayList<OpResult>(results.size());
+        for (ProcessTxnResult txnResult : results) {
+            this.results.add(OpResult.fromProcessTxnResult(txnResult.type, txnResult));
+        }
+    }
+
+    // this method is only used in tests
+    public static MultiResponse fromOpResultsList(List<OpResult> results) {
+        MultiResponse multiResponse = new MultiResponse();
+        for(OpResult result : results) {
+            multiResponse.results.add(result);
+        }
+        return multiResponse;
     }
 
     @Override
@@ -85,8 +102,6 @@ public class MultiResponse implements Record, Iterable<OpResult> {
 
     @Override
     public void deserialize(InputArchive archive, String tag) throws IOException {
-        results = new ArrayList<OpResult>();
-
         archive.startRecord(tag);
         MultiHeader h = new MultiHeader();
         h.deserialize(archive, tag);

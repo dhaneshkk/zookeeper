@@ -18,13 +18,17 @@
 package org.apache.zookeeper;
 
 
+import java.io.IOException;
+
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.data.Stat;
+import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
 
 /**
  * Encodes the result of a single part of a multiple operation commit.
  */
 public class OpResult {
-    private int type;
+    private final int type;
 
     private OpResult(int type) {
         this.type = type;
@@ -41,13 +45,24 @@ public class OpResult {
         return type;
     }
 
+    public static OpResult fromProcessTxnResult(int type, ProcessTxnResult txnResult) throws IOException {
+        switch (type) {
+            case OpCode.check: return new CheckResult();
+            case OpCode.create: return new CreateResult(txnResult.path);
+            case OpCode.delete: return  new DeleteResult();
+            case OpCode.setData: return new SetDataResult(txnResult.stat);
+            case OpCode.error: return new ErrorResult(txnResult.err) ;
+            default: throw new IOException("Invalid type of op");
+        }
+    }
+
     /**
      * A result from a create operation.  This kind of result allows the
      * path to be retrieved since the create might have been a sequential
      * create.
      */
     public static class CreateResult extends OpResult {
-        private String path;
+        private final String path;
 
         public CreateResult(String path) {
             super(ZooDefs.OpCode.create);
@@ -101,7 +116,7 @@ public class OpResult {
      * to the Stat structure from the update.
      */
     public static class SetDataResult extends OpResult {
-        private Stat stat;
+        private final Stat stat;
 
         public SetDataResult(Stat stat) {
             super(ZooDefs.OpCode.setData);
@@ -157,7 +172,7 @@ public class OpResult {
      *
      */
     public static class ErrorResult extends OpResult {
-        private int err;
+        private final int err;
 
         public ErrorResult(int err) {
             super(ZooDefs.OpCode.error);

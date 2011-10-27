@@ -55,13 +55,6 @@ import org.apache.zookeeper.server.ZooKeeperServer.ChangeRecord;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.ErrorTxn;
 
-import org.apache.zookeeper.OpResult;
-import org.apache.zookeeper.OpResult.CheckResult;
-import org.apache.zookeeper.OpResult.CreateResult;
-import org.apache.zookeeper.OpResult.DeleteResult;
-import org.apache.zookeeper.OpResult.SetDataResult;
-import org.apache.zookeeper.OpResult.ErrorResult;
-
 /**
  * This Request processor actually applies any transaction associated with a
  * request and services any queries. It is always at the end of a
@@ -189,35 +182,7 @@ public class FinalRequestProcessor implements RequestProcessor {
             }
             case OpCode.multi: {
                 lastOp = "MULT";
-                rsp = new MultiResponse() ;
-
-                for (ProcessTxnResult subTxnResult : rc.multiResult) {
-
-                    OpResult subResult ;
-
-                    switch (subTxnResult.type) {
-                        case OpCode.check:
-                            subResult = new CheckResult();
-                            break;
-                        case OpCode.create:
-                            subResult = new CreateResult(subTxnResult.path);
-                            break;
-                        case OpCode.delete:
-                            subResult = new DeleteResult();
-                            break;
-                        case OpCode.setData:
-                            subResult = new SetDataResult(subTxnResult.stat);
-                            break;
-                        case OpCode.error:
-                            subResult = new ErrorResult(subTxnResult.err) ;
-                            break;
-                        default:
-                            throw new IOException("Invalid type of op");
-                    }
-
-                    ((MultiResponse)rsp).add(subResult);
-                }
-
+                rsp = new MultiResponse(rc.multiResult);
                 break;
             }
             case OpCode.create: {

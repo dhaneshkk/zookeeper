@@ -27,19 +27,21 @@ import org.junit.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MultiResponseTest extends TestCase {
     public void testRoundTrip() throws IOException {
-        MultiResponse response = new MultiResponse();
+        List<OpResult> opResults = new ArrayList<OpResult>();
 
-        response.add(new OpResult.CheckResult());
-        response.add(new OpResult.CreateResult("foo-bar"));
-        response.add(new OpResult.DeleteResult());
+        opResults.add(new OpResult.CheckResult());
+        opResults.add(new OpResult.CreateResult("foo-bar"));
+        opResults.add(new OpResult.DeleteResult());
 
         Stat s = new Stat();
         s.setCzxid(546);
-        response.add(new OpResult.SetDataResult(s));
-
+        opResults.add(new OpResult.SetDataResult(s));
+        MultiResponse response = MultiResponse.fromOpResultsList(opResults);
         MultiResponse decodedResponse = codeDecode(response);
 
         assertEquals(response, decodedResponse);
