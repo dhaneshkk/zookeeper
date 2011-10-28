@@ -43,7 +43,6 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.Request.Meta;
-import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog.PlayBackListener;
 import org.apache.zookeeper.server.quorum.Leader;
@@ -309,17 +308,6 @@ public class ZKDatabase {
     }
 
     /**
-     * the process txn on the data
-     * @param hdr the txnheader for the txn
-     * @param txn the transaction that needs to be processed
-     * @return the result of processing the transaction on this
-     * datatree/zkdatabase
-     */
-    public ProcessTxnResult processTxn(TxnHeader hdr, Record txn) {
-        return dataTree.processTxn(hdr, txn);
-    }
-
-    /**
      * stat the path
      * @param path the path for which stat is to be done
      * @param serverCnxn the servercnxn attached to this request
@@ -480,6 +468,14 @@ public class ZKDatabase {
      */
     public void close() throws IOException {
         this.snapLog.close();
+    }
+
+    public void processTxn(TxnHeader hdr, Record txn) {
+        try {
+            Transaction.fromTxn(hdr, txn).process(dataTree);
+        } catch (KeeperException e) {
+            LOG.warn("Failed: ", e);
+        }
     }
 
 }

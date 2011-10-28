@@ -26,11 +26,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.Request;
-import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
+import org.apache.zookeeper.server.Transaction;
+import org.apache.zookeeper.server.Transaction.PathTransaction;
 import org.apache.zookeeper.server.persistence.TxnLog.TxnIterator;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
@@ -165,57 +165,55 @@ public class FileTxnSnapLog {
      * @param sessions the sessions to be restored
      * @param txn the transaction to be applied
      */
-    public void processTransaction(TxnHeader hdr,DataTree dt,
-            Map<Long, Integer> sessions, Record txn)
-        throws KeeperException.NoNodeException {
-        ProcessTxnResult rc;
+    public void processTransaction(TxnHeader hdr,DataTree dt, Map<Long, Integer> sessions, Record txn)
+                throws KeeperException.NoNodeException {
+        Transaction transaction = Transaction.fromTxn(hdr, txn);
         switch (OpCode.fromInt(hdr.getType())) {
         case createSession:
-            sessions.put(hdr.getClientId(),
-                    ((CreateSessionTxn) txn).getTimeOut());
-            // give dataTree a chance to sync its lastProcessedZxid
-            rc = dt.processTxn(hdr, txn);
+            sessions.put(hdr.getClientId(), ((CreateSessionTxn) txn).getTimeOut());
             break;
         case closeSession:
             sessions.remove(hdr.getClientId());
-            rc = dt.processTxn(hdr, txn);
             break;
-        default:
-            rc = dt.processTxn(hdr, txn);
         }
-
-        /**
-         * Snapshots are taken lazily. It can happen that the child
-         * znodes of a parent are created after the parent
-         * is serialized. Therefore, while replaying logs during restore, a
-         * create might fail because the node was already
-         * created.
-         *
-         * After seeing this failure, we should increment
-         * the cversion of the parent znode since the parent was serialized
-         * before its children.
-         *
-         * Note, such failures on DT should be seen only during
-         * restore.
-         */
-        if (OpCode.create.is(hdr.getType()) &&
-                rc.err == Code.NODEEXISTS.intValue()) {
-            LOG.debug("Adjusting parent cversion for Txn: " + hdr.getType() +
-                    " path:" + rc.path + " err: " + rc.err);
-            int lastSlash = rc.path.lastIndexOf('/');
-            String parentName = rc.path.substring(0, lastSlash);
-            CreateTxn cTxn = (CreateTxn)txn;
-            try {
-                dt.setCversionPzxid(parentName, cTxn.getParentCVersion(),
-                        hdr.getZxid());
-            } catch (KeeperException.NoNodeException e) {
-                LOG.error("Failed to set parent cversion for: " +
-                      parentName, e);
-                throw e;
+        dt.lastProcessedZxid = Math.max(dt.lastProcessedZxid, hdr.getZxid());
+        try {
+            transaction.process(dt);
+        } catch (KeeperException.NodeExistsException e) {
+            /**
+             * Snapshots are taken lazily. It can happen that the child
+             * znodes of a parent are created after the parent
+             * is serialized. Therefore, while replaying logs during restore, a
+             * create might fail because the node was already
+             * created.
+             *
+             * After seeing this failure, we should increment
+             * the cversion of the parent znode since the parent was serialized
+             * before its children.
+             *
+             * Note, such failures on DT should be seen only during
+             * restore.
+             */
+            if (OpCode.create.is(hdr.getType())) {
+                String path = ((PathTransaction)transaction).getPath();
+                LOG.debug("Adjusting parent cversion for Txn: {} path: {}",
+                        hdr.getType(), path);
+                int lastSlash = path.lastIndexOf('/');
+                String parentName = path.substring(0, lastSlash);
+                CreateTxn cTxn = (CreateTxn)txn;
+                try {
+                    dt.setCversionPzxid(parentName, cTxn.getParentCVersion(),
+                            hdr.getZxid());
+                } catch (KeeperException.NoNodeException e1) {
+                    LOG.error("Failed to set parent cversion for: " +
+                          parentName, e1);
+                    throw e1;
+                }
+            } else {
+                LOG.debug("Ignoring processTxn failure hdr: {}", hdr.getType());
             }
-        } else if (rc.err != Code.OK.intValue()) {
-            LOG.debug("Ignoring processTxn failure hdr: " + hdr.getType() +
-                  " : error: " + rc.err);
+        } catch (KeeperException e) {
+            LOG.warn("Ignoring keeperexception during deserialization: {}", e);
         }
     }
 

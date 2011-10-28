@@ -26,14 +26,12 @@ import org.apache.jute.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.MultiResponse;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.SessionMovedException;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.AccessControlList.Permission;
 import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.proto.CreateResponse;
 import org.apache.zookeeper.proto.ExistsRequest;
 import org.apache.zookeeper.proto.ExistsResponse;
 import org.apache.zookeeper.proto.GetACLRequest;
@@ -45,12 +43,11 @@ import org.apache.zookeeper.proto.GetChildrenResponse;
 import org.apache.zookeeper.proto.GetDataRequest;
 import org.apache.zookeeper.proto.GetDataResponse;
 import org.apache.zookeeper.proto.ReplyHeader;
-import org.apache.zookeeper.proto.SetACLResponse;
-import org.apache.zookeeper.proto.SetDataResponse;
 import org.apache.zookeeper.proto.SetWatches;
 import org.apache.zookeeper.proto.SyncRequest;
 import org.apache.zookeeper.proto.SyncResponse;
 import org.apache.zookeeper.server.Request.Meta;
+import org.apache.zookeeper.server.Transaction.PathTransaction;
 import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 import org.apache.zookeeper.server.ZooKeeperServer.ChangeRecord;
 import org.apache.zookeeper.txn.CreateSessionTxn;
@@ -79,7 +76,8 @@ public class FinalRequestProcessor implements RequestProcessor {
             LOG.debug("Processing request:: " + request);
         }
 
-        ProcessTxnResult rc = null;
+        Transaction transaction = null;
+        ProcessTxnResult rc = new ProcessTxnResult(0);
         synchronized (zks.outstandingChanges) {
             while (!zks.outstandingChanges.isEmpty()
                     && zks.outstandingChanges.get(0).zxid <= request.getMeta().getZxid()) {
@@ -92,7 +90,34 @@ public class FinalRequestProcessor implements RequestProcessor {
                 }
             }
             if (request.getHdr() != null) {
-                rc = zks.getZKDatabase().processTxn(request.getHdr(), request.getTxn());
+                transaction = Transaction.fromTxn(request.getHdr(), request.getTxn());
+                DataTree tree = zks.getZKDatabase().getDataTree();
+                try {
+                    rc = transaction.process(tree);
+                } catch (KeeperException e) {
+                    LOG.warn("Failed: ", e);
+                    if(transaction != null && transaction instanceof PathTransaction) {
+                        rc.path = ((PathTransaction)transaction).getPath();
+                    }
+                    rc.err = e.code().intValue();
+                }
+                /*
+                 * A snapshot might be in progress while we are modifying the data
+                 * tree. If we set lastProcessedZxid prior to making corresponding
+                 * change to the tree, then the zxid associated with the snapshot
+                 * file will be ahead of its contents. Thus, while restoring from
+                 * the snapshot, the restore method will not apply the transaction
+                 * for zxid associated with the snapshot file, since the restore
+                 * method assumes that transaction to be present in the snapshot.
+                 *
+                 * To avoid this, we first apply the transaction and then modify
+                 * lastProcessedZxid.  During restore, we correctly handle the
+                 * case where the snapshot contains data ahead of the zxid associated
+                 * with the file.
+                 */
+                if (request.getHdr().getZxid() > tree.lastProcessedZxid) {
+                    tree.lastProcessedZxid = request.getHdr().getZxid();
+                }
                 if (request.getMeta().getType() == OpCode.createSession) {
                     if (request.getTxn() instanceof CreateSessionTxn) {
                         CreateSessionTxn cst = (CreateSessionTxn) request.getTxn();
@@ -155,41 +180,20 @@ public class FinalRequestProcessor implements RequestProcessor {
                 zks.finishSessionInit(request.getMeta().getCnxn(), true);
                 return;
             }
-            case multi: {
-                rsp = new MultiResponse(rc.multiResult);
-                break;
-            }
-            case create: {
-                rsp = new CreateResponse(rc.path);
-                err = Code.get(rc.err);
-                break;
-            }
-            case delete: {
-                err = Code.get(rc.err);
-                break;
-            }
-            case setData: {
-                rsp = new SetDataResponse(rc.stat);
-                err = Code.get(rc.err);
-                break;
-            }
-            case setACL: {
-                rsp = new SetACLResponse(rc.stat);
-                err = Code.get(rc.err);
-                break;
-            }
-            case closeSession: {
+            case multi:
+            case create:
+            case delete:
+            case setData:
+            case setACL:
+            case closeSession:
+            case check: {
+                rsp = transaction.getResponse(rc);
                 err = Code.get(rc.err);
                 break;
             }
             case sync: {
                 SyncRequest syncRequest = (SyncRequest)request.deserializeRequestRecord();
                 rsp = new SyncResponse(syncRequest.getPath());
-                break;
-            }
-            case check: {
-                rsp = new SetDataResponse(rc.stat);
-                err = Code.get(rc.err);
                 break;
             }
             case exists: {

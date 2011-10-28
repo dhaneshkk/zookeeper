@@ -32,7 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.jute.Index;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
-import org.apache.jute.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
@@ -48,7 +47,6 @@ import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
-import org.apache.zookeeper.server.Transaction.PathTransaction;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.DeleteTxn;
 import org.apache.zookeeper.txn.TxnHeader;
@@ -64,6 +62,8 @@ import org.apache.zookeeper.txn.TxnHeader;
  */
 public class DataTree {
     private static final Logger LOG = LoggerFactory.getLogger(DataTree.class);
+
+    public volatile long lastProcessedZxid = 0;
 
     /**
      * This hashtable provides a fast lookup to the datanodes. The tree is the
@@ -484,41 +484,6 @@ public class DataTree {
             n.copyStat(stat);
             return convertLong(n.acl);
         }
-    }
-
-    public volatile long lastProcessedZxid = 0;
-
-    public Transaction.ProcessTxnResult processTxn(TxnHeader header, Record txn)
-    {
-        Transaction.ProcessTxnResult rc = new Transaction.ProcessTxnResult(0);
-        Transaction transaction = Transaction.fromTxn(header, txn);
-        try {
-            rc = transaction.process(this);
-        } catch (KeeperException e) {
-             LOG.warn("Failed: ", e);
-             if(transaction != null && transaction instanceof PathTransaction) {
-                 rc.path = ((PathTransaction)transaction).path;
-             }
-             rc.err = e.code().intValue();
-        }
-        /*
-         * A snapshot might be in progress while we are modifying the data
-         * tree. If we set lastProcessedZxid prior to making corresponding
-         * change to the tree, then the zxid associated with the snapshot
-         * file will be ahead of its contents. Thus, while restoring from
-         * the snapshot, the restore method will not apply the transaction
-         * for zxid associated with the snapshot file, since the restore
-         * method assumes that transaction to be present in the snapshot.
-         *
-         * To avoid this, we first apply the transaction and then modify
-         * lastProcessedZxid.  During restore, we correctly handle the
-         * case where the snapshot contains data ahead of the zxid associated
-         * with the file.
-         */
-        if (header.getZxid() > lastProcessedZxid) {
-            lastProcessedZxid = header.getZxid();
-        }
-        return rc;
     }
 
     void killSession(long session, long zxid) {

@@ -34,8 +34,12 @@ import org.apache.zookeeper.txn.SetACLTxn;
 import org.apache.zookeeper.txn.SetDataTxn;
 import org.apache.zookeeper.txn.Txn;
 import org.apache.zookeeper.txn.TxnHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class Transaction {
+    private static final Logger LOG = LoggerFactory.getLogger(Transaction.class);
+
     protected final long clientId;
     protected final int cxid;
     protected final long zxid;
@@ -54,7 +58,7 @@ public abstract class Transaction {
         this.type = OpCode.fromInt(header.getType());
     }
 
-    static Transaction fromTxn(TxnHeader header, Record txn) {
+    public static Transaction fromTxn(TxnHeader header, Record txn) {
         switch (OpCode.fromInt(header.getType())) {
         case create: return new Create(header, (CreateTxn)txn);
         case delete: return new Delete(header, (DeleteTxn)txn);
@@ -85,6 +89,8 @@ public abstract class Transaction {
             super(header);
             this.path = path;
         }
+
+        public String getPath() { return path; }
     }
 
     public static final class Create extends PathTransaction {
@@ -351,7 +357,7 @@ public abstract class Transaction {
         }
 
         @Override
-        public ProcessTxnResult process(DataTree tree) throws KeeperException {
+        public ProcessTxnResult process(DataTree tree) {
             List<ProcessTxnResult> multiResult = new ArrayList<ProcessTxnResult>();
 
             boolean postFailed = false;
@@ -366,12 +372,17 @@ public abstract class Transaction {
                     subRc = new ProcessTxnResult(postFailed ? Code.RUNTIMEINCONSISTENCY.intValue()
                                                             : Code.OK.intValue());
                 } else {
-                    subRc = subtxn.process(tree);
+                    try {
+                        subRc = subtxn.process(tree);
+                    } catch (KeeperException e) {
+                        LOG.debug("SubTxn of type {} failed: {}", type.longString, e);
+                        subRc = null;
+                    }
                 }
 
                 multiResult.add(subRc);
             }
-            ProcessTxnResult result = new ProcessTxnResult(error.intValue());
+            ProcessTxnResult result = new ProcessTxnResult(0);
             result.multiResult = multiResult;
             result.type = OpCode.multi;
             return result;
