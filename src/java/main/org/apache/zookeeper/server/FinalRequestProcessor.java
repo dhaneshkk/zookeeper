@@ -20,8 +20,6 @@ package org.apache.zookeeper.server;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
-
 import org.apache.jute.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,19 +27,6 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.SessionMovedException;
-import org.apache.zookeeper.common.AccessControlList;
-import org.apache.zookeeper.common.AccessControlList.Permission;
-import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.proto.ExistsRequest;
-import org.apache.zookeeper.proto.ExistsResponse;
-import org.apache.zookeeper.proto.GetACLRequest;
-import org.apache.zookeeper.proto.GetACLResponse;
-import org.apache.zookeeper.proto.GetChildren2Request;
-import org.apache.zookeeper.proto.GetChildren2Response;
-import org.apache.zookeeper.proto.GetChildrenRequest;
-import org.apache.zookeeper.proto.GetChildrenResponse;
-import org.apache.zookeeper.proto.GetDataRequest;
-import org.apache.zookeeper.proto.GetDataResponse;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.SetWatches;
 import org.apache.zookeeper.proto.SyncRequest;
@@ -196,35 +181,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 rsp = new SyncResponse(syncRequest.getPath());
                 break;
             }
-            case exists: {
-                // TODO we need to figure out the security requirement for this!
-                ExistsRequest existsRequest = (ExistsRequest)request.deserializeRequestRecord();
-                String path = existsRequest.getPath();
-                if (path.indexOf('\0') != -1) {
-                    throw new KeeperException.BadArgumentsException();
-                }
-                Stat stat = zks.getZKDatabase().statNode(path, existsRequest
-                        .getWatch() ? cnxn : null);
-                rsp = new ExistsResponse(stat);
-                break;
-            }
-            case getData: {
-                GetDataRequest getDataRequest = (GetDataRequest)request.deserializeRequestRecord();
-                DataNode n = zks.getZKDatabase().getNode(getDataRequest.getPath());
-                if (n == null) {
-                    throw new KeeperException.NoNodeException();
-                }
-                Long aclL;
-                synchronized(n) {
-                    aclL = n.acl;
-                }
-                zks.accessControl.check(zks.getZKDatabase().convertLong(aclL), Permission.READ, request.getMeta().getAuthInfo());
-                Stat stat = new Stat();
-                byte b[] = zks.getZKDatabase().getData(getDataRequest.getPath(), stat,
-                        getDataRequest.getWatch() ? cnxn : null);
-                rsp = new GetDataResponse(b, stat);
-                break;
-            }
+
             case setWatches: {
                 // XXX We really should NOT need this!!!!
                 request.getOriginalByteBuffer().rewind();
@@ -236,50 +193,14 @@ public class FinalRequestProcessor implements RequestProcessor {
                         setWatches.getChildWatches(), cnxn);
                 break;
             }
-            case getACL: {
-                GetACLRequest getACLRequest = (GetACLRequest)request.deserializeRequestRecord();
-                Stat stat = new Stat();
-                AccessControlList acl =
-                    zks.getZKDatabase().getACL(getACLRequest.getPath(), stat);
-                rsp = new GetACLResponse(acl.toJuteACL(), stat);
+            case exists:
+            case getData:
+            case getACL:
+            case getChildren:
+            case getChildren2:
+                rsp = ReadRequest.tryFromRecord(request.deserializeRequestRecord(), request.getMeta())
+                        .process(zks, request);
                 break;
-            }
-            case getChildren: {
-                GetChildrenRequest getChildrenRequest = (GetChildrenRequest)request.deserializeRequestRecord();
-                DataNode n = zks.getZKDatabase().getNode(getChildrenRequest.getPath());
-                if (n == null) {
-                    throw new KeeperException.NoNodeException();
-                }
-                Long aclG;
-                synchronized(n) {
-                    aclG = n.acl;
-
-                }
-                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.getMeta().getAuthInfo());
-                List<String> children = zks.getZKDatabase().getChildren(
-                        getChildrenRequest.getPath(), null, getChildrenRequest
-                                .getWatch() ? cnxn : null);
-                rsp = new GetChildrenResponse(children);
-                break;
-            }
-            case getChildren2: {
-                GetChildren2Request getChildren2Request = (GetChildren2Request)request.deserializeRequestRecord();
-                Stat stat = new Stat();
-                DataNode n = zks.getZKDatabase().getNode(getChildren2Request.getPath());
-                if (n == null) {
-                    throw new KeeperException.NoNodeException();
-                }
-                Long aclG;
-                synchronized(n) {
-                    aclG = n.acl;
-                }
-                zks.accessControl.check(zks.getZKDatabase().convertLong(aclG), Permission.READ, request.getMeta().getAuthInfo());
-                List<String> children = zks.getZKDatabase().getChildren(
-                        getChildren2Request.getPath(), stat, getChildren2Request
-                                .getWatch() ? cnxn : null);
-                rsp = new GetChildren2Response(children, stat);
-                break;
-            }
             }
         } catch (SessionMovedException e) {
             // session moved is a connection level error, we need to tear

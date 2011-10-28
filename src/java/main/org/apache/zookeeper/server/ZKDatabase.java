@@ -37,11 +37,9 @@ import org.apache.jute.Record;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
-import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog.PlayBackListener;
@@ -308,17 +306,6 @@ public class ZKDatabase {
     }
 
     /**
-     * stat the path
-     * @param path the path for which stat is to be done
-     * @param serverCnxn the servercnxn attached to this request
-     * @return the stat of this node
-     * @throws KeeperException.NoNodeException
-     */
-    public Stat statNode(String path, ServerCnxn serverCnxn) throws KeeperException.NoNodeException {
-        return dataTree.statNode(path, serverCnxn);
-    }
-
-    /**
      * get the datanode for this path
      * @param path the path to lookup
      * @return the datanode for getting the path
@@ -337,19 +324,6 @@ public class ZKDatabase {
     }
 
     /**
-     * get data and stat for a path
-     * @param path the path being queried
-     * @param stat the stat for this path
-     * @param watcher the watcher function
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public byte[] getData(String path, Stat stat, Watcher watcher)
-    throws KeeperException.NoNodeException {
-        return dataTree.getData(path, stat, watcher);
-    }
-
-    /**
      * set watches on the datatree
      * @param relativeZxid the relative zxid that client has seen
      * @param dataWatches the data watches the client wants to reset
@@ -360,30 +334,6 @@ public class ZKDatabase {
     public void setWatches(long relativeZxid, List<String> dataWatches,
             List<String> existWatches, List<String> childWatches, Watcher watcher) {
         dataTree.setWatches(relativeZxid, dataWatches, existWatches, childWatches, watcher);
-    }
-
-    /**
-     * get acl for a path
-     * @param path the path to query for acl
-     * @param stat the stat for the node
-     * @return the acl list for this path
-     * @throws NoNodeException
-     */
-    public AccessControlList getACL(String path, Stat stat) throws NoNodeException {
-        return dataTree.getACL(path, stat);
-    }
-
-    /**
-     * get children list for this path
-     * @param path the path of the node
-     * @param stat the stat of the node
-     * @param watcher the watcher function for this path
-     * @return the list of children for this path
-     * @throws KeeperException.NoNodeException
-     */
-    public List<String> getChildren(String path, Stat stat, Watcher watcher)
-    throws KeeperException.NoNodeException {
-        return dataTree.getChildren(path, stat, watcher);
     }
 
     /**

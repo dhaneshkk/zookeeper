@@ -33,7 +33,7 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
  * This class manages watches. It allows watches to be associated with a string
  * and removes watchers and their watches in addition to managing triggers.
  */
-class WatchManager {
+public class WatchManager {
     private final HashMap<String, HashSet<Watcher>> watchTable =
         new HashMap<String, HashSet<Watcher>>();
 
@@ -48,7 +48,7 @@ class WatchManager {
         return result;
     }
 
-    synchronized void addWatch(String path, Watcher watcher) {
+    public synchronized void addWatch(String path, Watcher watcher) {
         HashSet<Watcher> list = watchTable.get(path);
         if (list == null) {
             // don't waste memory if there are few watches on a node

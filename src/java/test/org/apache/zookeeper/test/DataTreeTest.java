@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZKTestCase;
-import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.DataTree;
 import org.junit.After;
 import org.junit.Assert;
@@ -57,7 +56,7 @@ public class DataTreeTest extends ZKTestCase {
         }
         MyWatcher watcher=new MyWatcher();
         // set a watch on the root node
-        dt.getChildren("/", new Stat(), watcher);
+        dt.childWatches.addWatch("/", watcher);
         // add a new node, should trigger a watch
         dt.createNode("/xyz", new byte[0], null, 0, dt.getNode("/").stat.getCversion()+1, 1, 1);
         Assert.assertFalse("Root node watch not triggered",!watcher.fired);

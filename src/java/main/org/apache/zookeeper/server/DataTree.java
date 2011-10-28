@@ -72,9 +72,9 @@ public class DataTree {
     final ConcurrentHashMap<String, DataNode> nodes =
         new ConcurrentHashMap<String, DataNode>();
 
-    final WatchManager dataWatches = new WatchManager();
+    public final WatchManager dataWatches = new WatchManager();
 
-    final WatchManager childWatches = new WatchManager();
+    public final WatchManager childWatches = new WatchManager();
 
     /** the root of zookeeper tree */
     private static final String rootZookeeper = "/";
@@ -415,74 +415,6 @@ public class DataTree {
         }
         else {
             return lastPrefix;
-        }
-    }
-
-    public byte[] getData(String path, Stat stat, Watcher watcher)
-            throws KeeperException.NoNodeException {
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            n.copyStat(stat);
-            if (watcher != null) {
-                dataWatches.addWatch(path, watcher);
-            }
-            return n.data;
-        }
-    }
-
-    public Stat statNode(String path, Watcher watcher)
-            throws KeeperException.NoNodeException {
-        Stat stat = new Stat();
-        DataNode n = nodes.get(path);
-        if (watcher != null) {
-            dataWatches.addWatch(path, watcher);
-        }
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            n.copyStat(stat);
-            return stat;
-        }
-    }
-
-    public List<String> getChildren(String path, Stat stat, Watcher watcher)
-            throws KeeperException.NoNodeException {
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            if (stat != null) {
-                n.copyStat(stat);
-            }
-            ArrayList<String> children;
-            Set<String> childs = n.getChildren();
-            if (childs == null) {
-                children = new ArrayList<String>(0);
-            } else {
-                children = new ArrayList<String>(childs);
-            }
-
-            if (watcher != null) {
-                childWatches.addWatch(path, watcher);
-            }
-            return children;
-        }
-    }
-
-    public AccessControlList getACL(String path, Stat stat)
-            throws KeeperException.NoNodeException {
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            n.copyStat(stat);
-            return convertLong(n.acl);
         }
     }
 

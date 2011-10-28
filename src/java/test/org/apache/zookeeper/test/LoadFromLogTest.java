@@ -19,6 +19,7 @@
 package org.apache.zookeeper.test;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -57,7 +58,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
     protected static final Logger LOG = LoggerFactory.getLogger(LoadFromLogTest.class);
 
     // setting up the quorum has a transaction overhead for creating and closing the session
-    private static final int TRANSACTION_OVERHEAD = 2;	
+    private static final int TRANSACTION_OVERHEAD = 2;
     private static final int TOTAL_TRANSACTIONS = NUM_MESSAGES + TRANSACTION_OVERHEAD;
     private volatile boolean connected;
 
@@ -93,8 +94,8 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
                 ClientBase.waitForServerDown(HOSTPORT, CONNECTION_TIMEOUT));
 
         // now verify that the FileTxnLog reads every transaction only once
-	File logDir = new File(tmpDir, FileTxnSnapLog.version + FileTxnSnapLog.VERSION);
-	FileTxnLog txnLog = new FileTxnLog(logDir);
+        File logDir = new File(tmpDir, FileTxnSnapLog.version + FileTxnSnapLog.VERSION);
+        FileTxnLog txnLog = new FileTxnLog(logDir);
 
         TxnIterator itr = txnLog.read(0);
         long expectedZxid = 0;
@@ -107,7 +108,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
             Assert.assertTrue("excepting next transaction. expected=" + expectedZxid + ", retreived=" + hdr.getZxid(), (hdr.getZxid() == expectedZxid));
             lastZxid = hdr.getZxid();
         }while(itr.next());
-	
+
         Assert.assertTrue("processed all transactions. " + expectedZxid + " == " + TOTAL_TRANSACTIONS, (expectedZxid == TOTAL_TRANSACTIONS));
     }
 
@@ -115,22 +116,22 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
 
 
     public void process(WatchedEvent event) {
-    	switch (event.getType()) {
-    	case None:   
-    		switch (event.getState()) {
-    		case SyncConnected:
-    			connected = true;
-    			break;
-    		case Disconnected:
-    			connected = false;
-    			break;
-    		default:   
-    			break;
-    		}
-        	break;
-    	default:
-    		break;
-    	}
+        switch (event.getType()) {
+        case None:
+            switch (event.getState()) {
+            case SyncConnected:
+                connected = true;
+                break;
+            case Disconnected:
+                connected = false;
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
     }
 
     /**
@@ -163,9 +164,10 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
         // LOG.info("Attempting to delete " + "/test/" + (count + 1));
         // doOp(logFile, OpCode.delete, "/test/" + (count + 1), dt, zk);
     }
+
     /*
      * Does create/delete depending on the type and verifies
-     * if cversion before the operation is 1 less than cversion afer.
+     * if cversion before the operation is 1 less than cversion after.
      */
     private void doOp(FileTxnSnapLog logFile, OpCode type, String path,
             DataTree dt, DataNode parent, int cversion) throws Exception {
@@ -174,7 +176,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
 
         int prevCversion = parent.stat.getCversion();
         long prevPzxid = parent.stat.getPzxid();
-        List<String> child = dt.getChildren(parentName, null, null);
+        List<String> child = new ArrayList<String>(dt.getNode(parentName).getChildren());
         StringBuilder childStr = new StringBuilder();
         for (String s : child) {
             childStr.append(s).append(" ");
@@ -197,7 +199,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
 
         int newCversion = parent.stat.getCversion();
         long newPzxid = parent.stat.getPzxid();
-        child = dt.getChildren(parentName, null, null);
+        child = new ArrayList<String>(dt.getNode(parentName).getChildren());
         childStr = new StringBuilder();
         for (String s : child) {
             childStr.append(s).append(" ");
@@ -231,10 +233,10 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
         Assert.assertTrue("Missing magic number ",
               header.getMagic() == FileTxnLog.TXNLOG_MAGIC);
     }
-    
+
     /**
      * Test we can restore the snapshot that has data ahead of the zxid
-     * of the snapshot file. 
+     * of the snapshot file.
      */
     @Test
     public void testRestore() throws Exception {
@@ -318,7 +320,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
 			}
 
 		}
-		// Verify correctness of data and whether sequential znode creation 
+		// Verify correctness of data and whether sequential znode creation
 		// proceeds correctly after this point
 		String[] children;
 		String path;
