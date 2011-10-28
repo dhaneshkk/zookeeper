@@ -25,7 +25,7 @@ import org.apache.zookeeper.proto.CreateResponse;
 import org.apache.zookeeper.proto.MultiHeader;
 import org.apache.zookeeper.proto.SetDataResponse;
 import org.apache.zookeeper.proto.ErrorResponse;
-import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
+import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 
 import java.io.IOException;
 import java.util.ArrayList;

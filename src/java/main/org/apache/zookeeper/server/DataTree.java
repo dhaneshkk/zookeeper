@@ -43,7 +43,6 @@ import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
-import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
@@ -487,38 +486,13 @@ public class DataTree {
         }
     }
 
-    static public final class ProcessTxnResult {
-        public int err = 0;
-
-        public OpCode type;
-
-        public String path;
-
-        public Stat stat;
-
-        public List<ProcessTxnResult> multiResult;
-
-        public ProcessTxnResult(int err) {
-            this.type = OpCode.error;
-            this.err = err;
-        }
-
-        public ProcessTxnResult(OpCode type, String path, Stat stat) {
-            super();
-            this.type = type;
-            this.path = path;
-            this.stat = stat;
-        }
-    }
-
     public volatile long lastProcessedZxid = 0;
 
-    public ProcessTxnResult processTxn(TxnHeader header, Record txn)
+    public Transaction.ProcessTxnResult processTxn(TxnHeader header, Record txn)
     {
-        ProcessTxnResult rc = new ProcessTxnResult(0);
-        Transaction transaction = null;
+        Transaction.ProcessTxnResult rc = new Transaction.ProcessTxnResult(0);
+        Transaction transaction = Transaction.fromTxn(header, txn);
         try {
-            transaction = Transaction.fromTxn(header, txn);
             rc = transaction.process(this);
         } catch (KeeperException e) {
              LOG.warn("Failed: ", e);

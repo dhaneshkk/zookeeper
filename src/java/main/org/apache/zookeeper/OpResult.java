@@ -22,7 +22,7 @@ import java.io.IOException;
 
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
+import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 
 /**
  * Encodes the result of a single part of a multiple operation commit.

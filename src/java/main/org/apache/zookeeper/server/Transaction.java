@@ -24,7 +24,6 @@ import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.proto.CreateResponse;
 import org.apache.zookeeper.proto.SetACLResponse;
 import org.apache.zookeeper.proto.SetDataResponse;
-import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
 import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.CheckVersionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
@@ -419,6 +418,30 @@ public abstract class Transaction {
         @Override
         public ProcessTxnResult process(DataTree tree) {
             return new ProcessTxnResult(errorCode.intValue());
+        }
+    }
+
+    static public final class ProcessTxnResult {
+        public int err = 0;
+
+        public OpCode type;
+
+        public String path;
+
+        public Stat stat;
+
+        public List<ProcessTxnResult> multiResult;
+
+        public ProcessTxnResult(int err) {
+            this.type = OpCode.error;
+            this.err = err;
+        }
+
+        public ProcessTxnResult(OpCode type, String path, Stat stat) {
+            super();
+            this.type = type;
+            this.path = path;
+            this.stat = stat;
         }
     }
 }
