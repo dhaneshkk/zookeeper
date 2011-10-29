@@ -40,9 +40,9 @@ public final class Request {
 
     public final ByteBuffer request;
 
-    private TxnHeader hdr;
+    private final TxnHeader hdr;
 
-    private Record txn;
+    private final Record txn;
 
     private KeeperException e;
 
@@ -62,19 +62,11 @@ public final class Request {
         return hdr;
     }
 
-    public void setHdr(TxnHeader hdr) {
-        this.hdr = hdr;
-    }
-
     public Record getTxn() {
         return txn;
     }
 
     public Meta getMeta() { return meta; }
-
-    public void setTxn(Record txn) {
-        this.txn = txn;
-    }
 
     @Override
     public String toString() {
