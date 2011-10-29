@@ -114,9 +114,6 @@ public class FinalRequestProcessor implements RequestProcessor {
                 } else if (request.type == OpCode.closeSession) {
                     zks.sessionTracker.removeSession(request.sessionId);
                 }
-            }
-            // do not add non quorum packets to the queue.
-            if (Request.isQuorum(request.type)) {
                 zks.getZKDatabase().addCommittedProposal(request);
             }
         }
