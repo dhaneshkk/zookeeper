@@ -170,8 +170,8 @@ public class FileTxnSnapLog {
             Map<Long, Integer> sessions, Record txn)
         throws KeeperException.NoNodeException {
         ProcessTxnResult rc;
-        switch (hdr.getType()) {
-        case OpCode.createSession:
+        switch (OpCode.fromInt(hdr.getType())) {
+        case createSession:
             sessions.put(hdr.getClientId(),
                     ((CreateSessionTxn) txn).getTimeOut());
             if (LOG.isTraceEnabled()) {
@@ -184,7 +184,7 @@ public class FileTxnSnapLog {
             // give dataTree a chance to sync its lastProcessedZxid
             rc = dt.processTxn(hdr, txn);
             break;
-        case OpCode.closeSession:
+        case closeSession:
             sessions.remove(hdr.getClientId());
             if (LOG.isTraceEnabled()) {
                 ZooTrace.logTraceMessage(LOG,ZooTrace.SESSION_TRACE_MASK,
@@ -211,7 +211,7 @@ public class FileTxnSnapLog {
          * Note, such failures on DT should be seen only during
          * restore.
          */
-        if (hdr.getType() == OpCode.create &&
+        if (OpCode.create.is(hdr.getType()) &&
                 rc.err == Code.NODEEXISTS.intValue()) {
             LOG.debug("Adjusting parent cversion for Txn: " + hdr.getType() +
                     " path:" + rc.path + " err: " + rc.err);

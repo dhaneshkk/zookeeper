@@ -20,51 +20,100 @@ package org.apache.zookeeper;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
+import org.apache.jute.Record;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
+import org.apache.zookeeper.proto.CheckVersionRequest;
+import org.apache.zookeeper.proto.CreateRequest;
+import org.apache.zookeeper.proto.DeleteRequest;
+import org.apache.zookeeper.proto.ExistsRequest;
+import org.apache.zookeeper.proto.GetACLRequest;
+import org.apache.zookeeper.proto.GetChildren2Request;
+import org.apache.zookeeper.proto.GetChildrenRequest;
+import org.apache.zookeeper.proto.GetDataRequest;
+import org.apache.zookeeper.proto.SetACLRequest;
+import org.apache.zookeeper.proto.SetDataRequest;
+import org.apache.zookeeper.proto.SetWatches;
+import org.apache.zookeeper.proto.SyncRequest;
 
 public class ZooDefs {
-    public interface OpCode {
-        public final int notification = 0;
+    public enum OpCode {
+        notification(0, "", "notification", null),
+        create(1, "CREA", "create", CreateRequest.class),
+        delete(2, "DELE", "delete", DeleteRequest.class),
+        exists(3, "EXIS", "exists", ExistsRequest.class),
+        getData(4, "GETD", "getData", GetDataRequest.class),
+        setData(5, "SETD", "setData", SetDataRequest.class),
+        getACL(6, "GETA", "getACL", GetACLRequest.class),
+        setACL(7, "SETA", "setACL", SetACLRequest.class),
+        getChildren(8, "GETC", "getChildren", GetChildrenRequest.class),
+        sync(9, "SYNC", "sync", SyncRequest.class),
+        ping(11, "PING", "ping", null),
+        getChildren2(12, "GETC", "getChildren2", GetChildren2Request.class),
+        check(13, "CHEC", "check", CheckVersionRequest.class),
+        multi(14, "MULT", "multi", MultiTransactionRecord.class),
+        auth(100, "", "", null),
+        setWatches(101, "SETW", "setWatches", SetWatches.class),
+        sasl(102, "", "", null),
+        createSession(-10, "SESS", "createSession", null),
+        closeSession(-11, "CLOS", "closeSession", null),
+        error(-1, "", "error", null);
 
-        public final int create = 1;
+        public final String string;
+        public final String longString;
+        private final int code;
+        public final Class<? extends Record> recordClass;
 
-        public final int delete = 2;
 
-        public final int exists = 3;
+        private final static Set<OpCode> writeOps = EnumSet.of(create, delete, setData, setACL, createSession, closeSession, multi, check);
+        private final static Set<OpCode> readOnlyOps = EnumSet.complementOf(EnumSet.of(sync, create, delete, setData, setACL));
 
-        public final int getData = 4;
+        private static final Map<Integer, OpCode> codesToEnums;
 
-        public final int setData = 5;
+        static {
+            codesToEnums = new HashMap<Integer, OpCode>(values().length);
+            for(OpCode opCode : values()) {
+                codesToEnums.put(opCode.code, opCode);
+            }
+        }
 
-        public final int getACL = 6;
+        OpCode(int code, String string, String longString, Class<? extends Record> recordClass) {
+            this.code = code;
+            this.string = string;
+            this.longString = longString;
+            this.recordClass = recordClass;
+        }
 
-        public final int setACL = 7;
+        public static OpCode fromInt(int code) {
+            OpCode opCode = codesToEnums.get(code);
+            if(opCode==null) throw new IllegalArgumentException("No OpCode for code "+code);
+            return opCode;
+        }
 
-        public final int getChildren = 8;
+        public int getInt() {
+            return code;
+        }
 
-        public final int sync = 9;
+        public boolean is(int code) {
+            return this.code == code;
+        }
 
-        public final int ping = 11;
+        public boolean isNot(int code) {
+            return !is(code);
+        }
 
-        public final int getChildren2 = 12;
+        public boolean isWriteOp() {
+            return writeOps.contains(this);
+        }
 
-        public final int check = 13;
-
-        public final int multi = 14;
-
-        public final int auth = 100;
-
-        public final int setWatches = 101;
-
-        public final int sasl = 102;
-
-        public final int createSession = -10;
-
-        public final int closeSession = -11;
-
-        public final int error = -1;
+        public boolean isReadOnlyOp() {
+            return readOnlyOps.contains(this);
+        }
     }
 
     public interface Perms {
@@ -112,8 +161,4 @@ public class ZooDefs {
                 Collections
                         .singletonList(new ACL(Perms.READ, ANYONE_ID_UNSAFE)));
     }
-
-    final public static String[] opNames = { "notification", "create",
-            "delete", "exists", "getData", "setData", "getACL", "setACL",
-            "getChildren", "getChildren2", "getMaxChildren", "setMaxChildren", "ping" };
 }

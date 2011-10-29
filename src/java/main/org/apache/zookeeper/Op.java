@@ -18,6 +18,7 @@
 package org.apache.zookeeper;
 
 import org.apache.jute.Record;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.proto.CheckVersionRequest;
 import org.apache.zookeeper.proto.CreateRequest;
@@ -41,11 +42,11 @@ import java.util.List;
  * @see ZooKeeper#setData(String, byte[], int)
  */
 public abstract class Op {
-    private int type;
+    private OpCode type;
     private String path;
 
     // prevent untyped construction
-    private Op(int type, String path) {
+    private Op(OpCode type, String path) {
         this.type = type;
         this.path = path;
     }
@@ -137,7 +138,7 @@ public abstract class Op {
      * @see ZooDefs.OpCode
      * @return  The type code.
      */
-    public int getType() {
+    public OpCode getType() {
         return type;
     }
 
@@ -203,7 +204,7 @@ public abstract class Op {
 
         @Override
         public int hashCode() {
-            return getType() + getPath().hashCode() + Arrays.hashCode(data);
+            return getType().hashCode() + getPath().hashCode() + Arrays.hashCode(data);
         }
 
         @Override
@@ -227,13 +228,13 @@ public abstract class Op {
 
             Delete op = (Delete) o;
 
-            return getType() == op.getType() && version == op.version 
+            return getType() == op.getType() && version == op.version
                    && getPath().equals(op.getPath());
         }
 
         @Override
         public int hashCode() {
-            return getType() + getPath().hashCode() + version;
+            return getType().hashCode() + getPath().hashCode() + version;
         }
 
         @Override
@@ -259,13 +260,13 @@ public abstract class Op {
 
             SetData op = (SetData) o;
 
-            return getType() == op.getType() && version == op.version 
+            return getType() == op.getType() && version == op.version
                    && getPath().equals(op.getPath()) && Arrays.equals(data, op.data);
         }
 
         @Override
         public int hashCode() {
-            return getType() + getPath().hashCode() + Arrays.hashCode(data) + version;
+            return getType().hashCode() + getPath().hashCode() + Arrays.hashCode(data) + version;
         }
 
         @Override
@@ -294,7 +295,7 @@ public abstract class Op {
 
         @Override
         public int hashCode() {
-            return getType() + getPath().hashCode() + version;
+            return getType().hashCode() + getPath().hashCode() + version;
         }
 
         @Override

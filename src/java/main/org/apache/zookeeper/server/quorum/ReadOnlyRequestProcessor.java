@@ -72,15 +72,8 @@ public class ReadOnlyRequestProcessor extends Thread implements RequestProcessor
                     break;
                 }
 
-                // filter read requests
-                switch (request.type) {
-                case OpCode.sync:
-                case OpCode.create:
-                case OpCode.delete:
-                case OpCode.setData:
-                case OpCode.setACL:
-                case OpCode.multi:
-                case OpCode.check:
+                // filter out write requests, only read requests pass
+                if(!request.type.isReadOnlyOp()) {
                     ReplyHeader hdr = new ReplyHeader(request.cxid, zks.getZKDatabase()
                             .getDataTreeLastProcessedZxid(), Code.NOTREADONLY.intValue());
                     try {

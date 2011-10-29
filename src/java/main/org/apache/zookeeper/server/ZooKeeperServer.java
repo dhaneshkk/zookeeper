@@ -573,7 +573,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @param xid
      * @param bb
      */
-    private void submitRequest(ServerCnxn cnxn, long sessionId, int type,
+    private void submitRequest(ServerCnxn cnxn, long sessionId, OpCode type,
             int xid, ByteBuffer bb, List<Id> authInfo) {
         Request si = new Request(cnxn, sessionId, xid, type, bb, authInfo);
         submitRequest(si);
@@ -600,7 +600,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             LOG.debug("Dropping request: No session with sessionid 0x{} exists,"
                         + " probably expired and removed",
                         Long.toHexString(si.cnxn.getSessionId()));
-        } else if (Request.isValid(si.type)) {
+        } else if (si.type != OpCode.notification) {
             firstProcessor.processRequest(si);
             if (si.cnxn != null) {
                 incInProcess();
@@ -803,7 +803,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         // pointing
         // to the start of the txn
         incomingBuffer = incomingBuffer.slice();
-        if (h.getType() == OpCode.auth) {
+        if (OpCode.auth.is(h.getType())) {
             LOG.info("got auth packet " + cnxn.getRemoteSocketAddress());
             AuthPacket authPacket = new AuthPacket();
             ByteBufferInputStream.byteBuffer2Record(incomingBuffer, authPacket);
@@ -844,14 +844,14 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             }
             return;
         } else {
-            if (h.getType() == OpCode.sasl) {
+            if (OpCode.sasl.is(h.getType())) {
                 Record rsp = processSasl(incomingBuffer,cnxn);
                 ReplyHeader rh = new ReplyHeader(h.getXid(), 0, KeeperException.Code.OK.intValue());
                 cnxn.sendResponse(rh,rsp, "response"); // not sure about 3rd arg..what is it?
             }
             else {
                 Request si = new Request(cnxn, cnxn.getSessionId(), h.getXid(),
-                  h.getType(), incomingBuffer, cnxn.getAuthInfo());
+                  OpCode.fromInt(h.getType()), incomingBuffer, cnxn.getAuthInfo());
                 si.setOwner(ServerCnxn.me);
                 submitRequest(si);
             }

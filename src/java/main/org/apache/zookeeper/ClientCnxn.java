@@ -866,7 +866,7 @@ public class ClientCnxn {
                                 prependChroot(existWatches),
                                 prependChroot(childWatches));
                         RequestHeader h = new RequestHeader();
-                        h.setType(ZooDefs.OpCode.setWatches);
+                        h.setType(OpCode.setWatches.getInt());
                         h.setXid(-8);
                         Packet packet = new Packet(h, new ReplyHeader(), sw, null, null);
                         outgoingQueue.addFirst(packet);
@@ -875,7 +875,7 @@ public class ClientCnxn {
 
                 for (AuthData id : authInfo) {
                     outgoingQueue.addFirst(new Packet(new RequestHeader(-4,
-                            OpCode.auth), null, new AuthPacket(0, id.scheme,
+                            OpCode.auth.getInt()), null, new AuthPacket(0, id.scheme,
                             id.data), null, null));
                 }
                 outgoingQueue.addFirst(new Packet(null, null, conReq,
@@ -907,7 +907,7 @@ public class ClientCnxn {
 
         private void sendPing() {
             lastPingSentNs = System.nanoTime();
-            RequestHeader h = new RequestHeader(-2, OpCode.ping);
+            RequestHeader h = new RequestHeader(-2, OpCode.ping.getInt());
             queuePacket(h, null, null, null, null, null, null, null, null);
         }
 
@@ -1230,7 +1230,7 @@ public class ClientCnxn {
 
         try {
             RequestHeader h = new RequestHeader();
-            h.setType(ZooDefs.OpCode.closeSession);
+            h.setType(OpCode.closeSession.getInt());
 
             submitRequest(h, null, null, null);
         } catch (InterruptedException e) {
@@ -1268,7 +1268,7 @@ public class ClientCnxn {
     {
         Packet packet = null;
         synchronized (outgoingQueue) {
-            if (h.getType() != OpCode.ping && h.getType() != OpCode.auth) {
+            if (!OpCode.ping.is(h.getType()) && !OpCode.auth.is(h.getType())) {
                 h.setXid(getXid());
             }
             packet = new Packet(h, r, request, response, watchRegistration);
@@ -1281,7 +1281,7 @@ public class ClientCnxn {
             } else {
                 // If the client is asking to close the session then
                 // mark as closing
-                if (h.getType() == OpCode.closeSession) {
+                if (OpCode.closeSession.is(h.getType())) {
                     closing = true;
                 }
                 outgoingQueue.add(packet);
@@ -1296,7 +1296,7 @@ public class ClientCnxn {
             return;
         }
         authInfo.add(new AuthData(scheme, auth));
-        queuePacket(new RequestHeader(-4, OpCode.auth), null,
+        queuePacket(new RequestHeader(-4, OpCode.auth.getInt()), null,
                 new AuthPacket(0, scheme, auth), null, null, null, null,
                 null, null);
     }

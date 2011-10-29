@@ -20,6 +20,7 @@ package org.apache.zookeeper;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.proto.*;
 
 import java.io.IOException;
@@ -35,7 +36,7 @@ import java.util.List;
  * are included.
  */
 public class MultiTransactionRecord implements Record, Iterable<Op> {
-    private List<Op> ops = new ArrayList<Op>();
+    private final List<Op> ops = new ArrayList<Op>();
 
     public MultiTransactionRecord() {
     }
@@ -63,23 +64,17 @@ public class MultiTransactionRecord implements Record, Iterable<Op> {
     public void serialize(OutputArchive archive, String tag) throws IOException {
         archive.startRecord(this, tag);
         for (Op op : ops) {
-            MultiHeader h = new MultiHeader(op.getType(), false, -1);
+            MultiHeader h = new MultiHeader(op.getType().getInt(), false, -1);
             h.serialize(archive, tag);
             switch (op.getType()) {
-               case ZooDefs.OpCode.create:
-                    op.toRequestRecord().serialize(archive, tag);
-                    break;
-                case ZooDefs.OpCode.delete:
-                    op.toRequestRecord().serialize(archive, tag);
-                    break;
-                case ZooDefs.OpCode.setData:
-                    op.toRequestRecord().serialize(archive, tag);
-                    break;
-                case ZooDefs.OpCode.check:
-                    op.toRequestRecord().serialize(archive, tag);
-                    break;
-                default:
-                    throw new IOException("Invalid type of op");
+            case create:
+            case delete:
+            case setData:
+            case check:
+                op.toRequestRecord().serialize(archive, tag);
+                break;
+            default:
+                throw new IOException("Invalid type of op");
             }
         }
         new MultiHeader(-1, true, -1).serialize(archive, tag);
@@ -93,29 +88,29 @@ public class MultiTransactionRecord implements Record, Iterable<Op> {
         h.deserialize(archive, tag);
 
         while (!h.getDone()) {
-            switch (h.getType()) {
-               case ZooDefs.OpCode.create:
-                    CreateRequest cr = new CreateRequest();
-                    cr.deserialize(archive, tag);
-                    add(Op.create(cr.getPath(), cr.getData(), cr.getAcl(), cr.getFlags()));
-                    break;
-                case ZooDefs.OpCode.delete:
-                    DeleteRequest dr = new DeleteRequest();
-                    dr.deserialize(archive, tag);
-                    add(Op.delete(dr.getPath(), dr.getVersion()));
-                    break;
-                case ZooDefs.OpCode.setData:
-                    SetDataRequest sdr = new SetDataRequest();
-                    sdr.deserialize(archive, tag);
-                    add(Op.setData(sdr.getPath(), sdr.getData(), sdr.getVersion()));
-                    break;
-                case ZooDefs.OpCode.check:
-                    CheckVersionRequest cvr = new CheckVersionRequest();
-                    cvr.deserialize(archive, tag);
-                    add(Op.check(cvr.getPath(), cvr.getVersion()));
-                    break;
-                default:
-                    throw new IOException("Invalid type of op");
+            switch (OpCode.fromInt(h.getType())) {
+            case create:
+                CreateRequest cr = new CreateRequest();
+                cr.deserialize(archive, tag);
+                add(Op.create(cr.getPath(), cr.getData(), cr.getAcl(), cr.getFlags()));
+                break;
+            case delete:
+                DeleteRequest dr = new DeleteRequest();
+                dr.deserialize(archive, tag);
+                add(Op.delete(dr.getPath(), dr.getVersion()));
+                break;
+            case setData:
+                SetDataRequest sdr = new SetDataRequest();
+                sdr.deserialize(archive, tag);
+                add(Op.setData(sdr.getPath(), sdr.getData(), sdr.getVersion()));
+                break;
+            case check:
+                CheckVersionRequest cvr = new CheckVersionRequest();
+                cvr.deserialize(archive, tag);
+                add(Op.check(cvr.getPath(), cvr.getVersion()));
+                break;
+            default:
+                throw new IOException("Invalid type of op");
             }
             h.deserialize(archive, tag);
         }

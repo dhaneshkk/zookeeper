@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.jute.Record;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
@@ -45,7 +46,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
     // This is just an arbitrary object to represent requests issued by
     // (aka owned by) this class
     final public static Object me = new Object();
-    
+
     protected ArrayList<Id> authInfo = new ArrayList<Id>();
 
     /**
@@ -267,7 +268,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
     }
 
     protected abstract ServerStats serverStats();
-    
+
     protected final Date established = new Date();
 
     protected final AtomicLong packetsReceived = new AtomicLong();
@@ -275,7 +276,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
 
     protected long minLatency;
     protected long maxLatency;
-    protected String lastOp;
+    protected OpCode lastOp;
     protected long lastCxid;
     protected long lastZxid;
     protected long lastResponseTime;
@@ -289,7 +290,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
         packetsSent.set(0);
         minLatency = Long.MAX_VALUE;
         maxLatency = 0;
-        lastOp = "NA";
+        lastOp = null;
         lastCxid = -1;
         lastZxid = -1;
         lastResponseTime = 0;
@@ -302,7 +303,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
     protected long incrPacketsReceived() {
         return packetsReceived.incrementAndGet();
     }
-    
+
     protected void incrOutstandingRequests(RequestHeader h) {
     }
 
@@ -311,7 +312,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
     }
 
     protected synchronized void updateStatsForResponse(long cxid, long zxid,
-            String op, long start, long end)
+            OpCode op, long start, long end)
     {
         // don't overwrite with "special" xids - we're interested
         // in the clients last real operation
@@ -360,7 +361,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
     }
 
     public synchronized String getLastOperation() {
-        return lastOp;
+        return lastOp == null ? "NA" : lastOp.string;
     }
 
     public synchronized long getLastCxid() {
@@ -396,7 +397,7 @@ public abstract class ServerCnxn implements Stats, Watcher {
 
     public abstract InetSocketAddress getRemoteSocketAddress();
     public abstract int getInterestOps();
-    
+
     /**
      * Print information about the connection.
      * @param brief iff true prints brief details, otw full detail

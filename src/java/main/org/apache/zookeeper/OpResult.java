@@ -28,30 +28,30 @@ import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
  * Encodes the result of a single part of a multiple operation commit.
  */
 public class OpResult {
-    private final int type;
+    private final OpCode type;
 
-    private OpResult(int type) {
+    private OpResult(OpCode type) {
         this.type = type;
     }
 
     /**
-     * Encodes the return type as from ZooDefs.OpCode.  Can be used
+     * Encodes the return type as from OpCode.  Can be used
      * to dispatch to the correct cast needed for getting the desired
      * additional result data.
-     * @see ZooDefs.OpCode
+     * @see OpCode
      * @return an integer identifying what kind of operation this result came from.
      */
-    public int getType() {
+    public OpCode getType() {
         return type;
     }
 
-    public static OpResult fromProcessTxnResult(int type, ProcessTxnResult txnResult) throws IOException {
+    public static OpResult fromProcessTxnResult(OpCode type, ProcessTxnResult txnResult) throws IOException {
         switch (type) {
-            case OpCode.check: return new CheckResult();
-            case OpCode.create: return new CreateResult(txnResult.path);
-            case OpCode.delete: return  new DeleteResult();
-            case OpCode.setData: return new SetDataResult(txnResult.stat);
-            case OpCode.error: return new ErrorResult(txnResult.err) ;
+            case check: return new CheckResult();
+            case create: return new CreateResult(txnResult.path);
+            case delete: return  new DeleteResult();
+            case setData: return new SetDataResult(txnResult.stat);
+            case error: return new ErrorResult(txnResult.err) ;
             default: throw new IOException("Invalid type of op");
         }
     }
@@ -65,7 +65,7 @@ public class OpResult {
         private final String path;
 
         public CreateResult(String path) {
-            super(ZooDefs.OpCode.create);
+            super(OpCode.create);
             this.path = path;
         }
 
@@ -84,7 +84,7 @@ public class OpResult {
 
         @Override
         public int hashCode() {
-            return getType() * 35 + path.hashCode();
+            return getType().hashCode() * 35 + path.hashCode();
         }
     }
 
@@ -93,7 +93,7 @@ public class OpResult {
      */
     public static class DeleteResult extends OpResult {
         public DeleteResult() {
-            super(ZooDefs.OpCode.delete);
+            super(OpCode.delete);
         }
 
         @Override
@@ -107,7 +107,7 @@ public class OpResult {
 
         @Override
         public int hashCode() {
-            return getType();
+            return getType().hashCode();
         }
     }
 
@@ -119,7 +119,7 @@ public class OpResult {
         private final Stat stat;
 
         public SetDataResult(Stat stat) {
-            super(ZooDefs.OpCode.setData);
+            super(OpCode.setData);
             this.stat = stat;
         }
 
@@ -138,7 +138,7 @@ public class OpResult {
 
         @Override
         public int hashCode() {
-            return (int) (getType() * 35 + stat.getMzxid());
+            return (int) (getType().hashCode() * 35 + stat.getMzxid());
         }
     }
 
@@ -147,7 +147,7 @@ public class OpResult {
      */
     public static class CheckResult extends OpResult {
         public CheckResult() {
-            super(ZooDefs.OpCode.check);
+            super(OpCode.check);
         }
 
         @Override
@@ -161,7 +161,7 @@ public class OpResult {
 
         @Override
         public int hashCode() {
-            return getType();
+            return getType().hashCode();
         }
     }
 
@@ -175,7 +175,7 @@ public class OpResult {
         private final int err;
 
         public ErrorResult(int err) {
-            super(ZooDefs.OpCode.error);
+            super(OpCode.error);
             this.err = err;
         }
 
@@ -194,7 +194,7 @@ public class OpResult {
 
         @Override
         public int hashCode() {
-            return getType() * 35 + err;
+            return getType().hashCode() * 35 + err;
         }
     }
 }

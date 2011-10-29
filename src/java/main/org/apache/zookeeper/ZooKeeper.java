@@ -20,6 +20,7 @@ package org.apache.zookeeper;
 
 import org.apache.zookeeper.AsyncCallback.*;
 import org.apache.zookeeper.OpResult.ErrorResult;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.client.ConnectStringParser;
 import org.apache.zookeeper.client.HostProvider;
 import org.apache.zookeeper.client.StaticHostProvider;
@@ -763,7 +764,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.create);
+        h.setType(OpCode.create.getInt());
         CreateRequest request = new CreateRequest();
         CreateResponse response = new CreateResponse();
         request.setData(data);
@@ -800,7 +801,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.create);
+        h.setType(OpCode.create.getInt());
         CreateRequest request = new CreateRequest();
         CreateResponse response = new CreateResponse();
         ReplyHeader r = new ReplyHeader();
@@ -859,7 +860,7 @@ public class ZooKeeper {
         }
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.delete);
+        h.setType(OpCode.delete.getInt());
         DeleteRequest request = new DeleteRequest();
         request.setPath(serverPath);
         request.setVersion(version);
@@ -895,7 +896,7 @@ public class ZooKeeper {
     protected List<OpResult> multiInternal(MultiTransactionRecord request)
         throws InterruptedException, KeeperException {
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.multi);
+        h.setType(OpCode.multi.getInt());
         MultiResponse response = new MultiResponse();
         ReplyHeader r = cnxn.submitRequest(h, request, response, null);
         if (r.getErr() != 0) {
@@ -950,7 +951,7 @@ public class ZooKeeper {
         }
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.delete);
+        h.setType(OpCode.delete.getInt());
         DeleteRequest request = new DeleteRequest();
         request.setPath(serverPath);
         request.setVersion(version);
@@ -990,7 +991,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.exists);
+        h.setType(OpCode.exists.getInt());
         ExistsRequest request = new ExistsRequest();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1051,7 +1052,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.exists);
+        h.setType(OpCode.exists.getInt());
         ExistsRequest request = new ExistsRequest();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1103,7 +1104,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getData);
+        h.setType(OpCode.getData.getInt());
         GetDataRequest request = new GetDataRequest();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1162,7 +1163,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getData);
+        h.setType(OpCode.getData.getInt());
         GetDataRequest request = new GetDataRequest();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1217,7 +1218,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setData);
+        h.setType(OpCode.setData.getInt());
         SetDataRequest request = new SetDataRequest();
         request.setPath(serverPath);
         request.setData(data);
@@ -1245,7 +1246,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setData);
+        h.setType(OpCode.setData.getInt());
         SetDataRequest request = new SetDataRequest();
         request.setPath(serverPath);
         request.setData(data);
@@ -1279,7 +1280,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getACL);
+        h.setType(OpCode.getACL.getInt());
         GetACLRequest request = new GetACLRequest();
         request.setPath(serverPath);
         GetACLResponse response = new GetACLResponse();
@@ -1306,7 +1307,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getACL);
+        h.setType(OpCode.getACL.getInt());
         GetACLRequest request = new GetACLRequest();
         request.setPath(serverPath);
         GetACLResponse response = new GetACLResponse();
@@ -1343,7 +1344,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setACL);
+        h.setType(OpCode.setACL.getInt());
         SetACLRequest request = new SetACLRequest();
         request.setPath(serverPath);
         if (acl != null && acl.size() == 0) {
@@ -1374,7 +1375,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.setACL);
+        h.setType(OpCode.setACL.getInt());
         SetACLRequest request = new SetACLRequest();
         request.setPath(serverPath);
         request.setAcl(acl);
@@ -1420,7 +1421,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren);
+        h.setType(OpCode.getChildren.getInt());
         GetChildrenRequest request = new GetChildrenRequest();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1478,7 +1479,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren);
+        h.setType(OpCode.getChildren.getInt());
         GetChildrenRequest request = new GetChildrenRequest();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1538,7 +1539,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren2);
+        h.setType(OpCode.getChildren2.getInt());
         GetChildren2Request request = new GetChildren2Request();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1606,7 +1607,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.getChildren2);
+        h.setType(OpCode.getChildren2.getInt());
         GetChildren2Request request = new GetChildren2Request();
         request.setPath(serverPath);
         request.setWatch(watcher != null);
@@ -1642,7 +1643,7 @@ public class ZooKeeper {
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.sync);
+        h.setType(OpCode.sync.getInt());
         SyncRequest request = new SyncRequest();
         SyncResponse response = new SyncResponse();
         request.setPath(serverPath);

@@ -34,7 +34,6 @@ import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.server.ByteBufferOutputStream;
-import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.ServerCnxn;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZKDatabase;
@@ -114,15 +113,15 @@ public class Zab1_0Test {
             }
         }
     }
-    
+
     static public interface LeaderConversation {
         void converseWithLeader(InputArchive ia, OutputArchive oa, Leader l) throws Exception;
     }
-    
+
     static public interface FollowerConversation {
         void converseWithFollower(InputArchive ia, OutputArchive oa) throws Exception;
     }
-    
+
     public void testConversation(LeaderConversation conversation) throws Exception {
         Socket pair[] = getSocketPair();
         Socket leaderSocket = pair[0];
@@ -142,7 +141,7 @@ public class Zab1_0Test {
             while(!leader.readyToStart) {
                 Thread.sleep(20);
             }
-            
+
             LearnerHandler lh = new LearnerHandler(leaderSocket, leader);
             lh.start();
             leaderSocket.setSoTimeout(4000);
@@ -164,7 +163,7 @@ public class Zab1_0Test {
             }
         }
     }
-        
+
     @Test
     public void testNormalRun() throws Exception {
         testConversation(new LeaderConversation() {
@@ -197,7 +196,7 @@ public class Zab1_0Test {
             }
         });
     }
-    
+
     @Test
     public void testLeaderBehind() throws Exception {
         testConversation(new LeaderConversation() {
@@ -243,7 +242,7 @@ public class Zab1_0Test {
         testConversation(new LeaderConversation() {
             public void converseWithLeader(InputArchive ia, OutputArchive oa, Leader l)
                     throws IOException, InterruptedException {
-                /* we test a normal run. everything should work out well. */            	
+                /* we test a normal run. everything should work out well. */
                 LearnerInfo li = new LearnerInfo(1, 0x10000);
                 byte liBytes[] = new byte[12];
                 ByteBufferOutputStream.record2ByteBuffer(li,
@@ -255,15 +254,15 @@ public class Zab1_0Test {
                 Assert.assertEquals(Leader.LEADERINFO, qp.getType());
                 Assert.assertEquals(ZxidUtils.makeZxid(1, 0), qp.getZxid());
                 Assert.assertEquals(ByteBuffer.wrap(qp.getData()).getInt(),
-                        0x10000);                
+                        0x10000);
                 Thread.sleep(l.self.getInitLimit()*l.self.getTickTime() + 5000);
-                
+
                 // The leader didn't get a quorum of acks - make sure that leader's current epoch is not advanced
-                Assert.assertEquals(0, l.self.getCurrentEpoch());			
+                Assert.assertEquals(0, l.self.getCurrentEpoch());
             }
         });
     }
-    
+
     private void recursiveDelete(File file) {
         if (file.isFile()) {
             file.delete();

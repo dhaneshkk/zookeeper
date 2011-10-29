@@ -20,6 +20,7 @@ package org.apache.zookeeper;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.proto.CreateResponse;
 import org.apache.zookeeper.proto.MultiHeader;
 import org.apache.zookeeper.proto.SetDataResponse;
@@ -75,21 +76,22 @@ public class MultiResponse implements Record, Iterable<OpResult> {
         archive.startRecord(this, tag);
 
         for (OpResult result : results) {
-            int err = result.getType() == ZooDefs.OpCode.error ? ((OpResult.ErrorResult)result).getErr() : 0;
+            OpCode opCode = result.getType();
+            int err = opCode == OpCode.error ? ((OpResult.ErrorResult)result).getErr() : 0;
 
-            new MultiHeader(result.getType(), false, err).serialize(archive, tag);
+            new MultiHeader(result.getType().getInt(), false, err).serialize(archive, tag);
 
-            switch (result.getType()) {
-                case ZooDefs.OpCode.create:
+            switch (opCode) {
+                case create:
                     new CreateResponse(((OpResult.CreateResult) result).getPath()).serialize(archive, tag);
                     break;
-                case ZooDefs.OpCode.delete:
-                case ZooDefs.OpCode.check:
+                case delete:
+                case check:
                     break;
-                case ZooDefs.OpCode.setData:
+                case setData:
                     new SetDataResponse(((OpResult.SetDataResult) result).getStat()).serialize(archive, tag);
                     break;
-                case ZooDefs.OpCode.error:
+                case error:
                     new ErrorResponse(((OpResult.ErrorResult) result).getErr()).serialize(archive, tag);
                     break;
                 default:
@@ -106,28 +108,28 @@ public class MultiResponse implements Record, Iterable<OpResult> {
         MultiHeader h = new MultiHeader();
         h.deserialize(archive, tag);
         while (!h.getDone()) {
-            switch (h.getType()) {
-                case ZooDefs.OpCode.create:
+            switch (OpCode.fromInt(h.getType())) {
+                case create:
                     CreateResponse cr = new CreateResponse();
                     cr.deserialize(archive, tag);
                     results.add(new OpResult.CreateResult(cr.getPath()));
                     break;
 
-                case ZooDefs.OpCode.delete:
+                case delete:
                     results.add(new OpResult.DeleteResult());
                     break;
 
-                case ZooDefs.OpCode.setData:
+                case setData:
                     SetDataResponse sdr = new SetDataResponse();
                     sdr.deserialize(archive, tag);
                     results.add(new OpResult.SetDataResult(sdr.getStat()));
                     break;
 
-                case ZooDefs.OpCode.check:
+                case check:
                     results.add(new OpResult.CheckResult());
                     break;
 
-                case ZooDefs.OpCode.error:
+                case error:
                     //FIXME: need way to more cleanly serialize/deserialize exceptions
                     ErrorResponse er = new ErrorResponse();
                     er.deserialize(archive, tag);

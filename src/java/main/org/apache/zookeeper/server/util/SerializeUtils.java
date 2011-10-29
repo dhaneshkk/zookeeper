@@ -21,6 +21,7 @@ package org.apache.zookeeper.server.util;
 import java.io.ByteArrayInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -49,8 +50,8 @@ import org.apache.zookeeper.txn.MultiTxn;
 public class SerializeUtils {
     private static final Logger LOG = LoggerFactory.getLogger(SerializeUtils.class);
 
-    private static final Map<Integer, Class<? extends Record>> type2txnRecordClass
-        = new HashMap<Integer, Class<? extends Record>>();
+    private static final Map<OpCode, Class<? extends Record>> type2txnRecordClass
+        = new EnumMap<OpCode, Class<? extends Record>>(OpCode.class);
     static {
         type2txnRecordClass.put(OpCode.createSession, CreateSessionTxn.class);
         type2txnRecordClass.put(OpCode.create, CreateTxn.class);
@@ -62,9 +63,9 @@ public class SerializeUtils {
         type2txnRecordClass.put(OpCode.check, CheckVersionTxn.class);
     }
 
-    public static Record getRecordForType(int type) throws IOException {
+    public static Record getRecordForType(OpCode type) throws IOException {
         Class<? extends Record> clazz = type2txnRecordClass.get(type);
-        if(clazz == null) throw new IOException("Unsupported Txn with type="+type);
+        if(clazz == null) throw new IOException("Unsupported Txn with type " + type);
 
         try { return clazz.newInstance(); }
         catch (InstantiationException e) { throw new RuntimeException(e); }
@@ -78,14 +79,14 @@ public class SerializeUtils {
 
         hdr.deserialize(ia, "hdr");
         bais.mark(bais.available());
-        if(hdr.getType() == OpCode.closeSession) return null;
-        final Record txn = getRecordForType(hdr.getType());
+        if(hdr.getType() == OpCode.closeSession.getInt()) return null;
+        final Record txn = getRecordForType(OpCode.fromInt(hdr.getType()));
 
         try {
             txn.deserialize(ia, "txn");
         } catch(EOFException e) {
             // perhaps this is a V0 Create
-            if (hdr.getType() == OpCode.create) {
+            if (hdr.getType() == OpCode.create.getInt()) {
                 CreateTxn create = (CreateTxn)txn;
                 bais.reset();
                 CreateTxnV0 createv0 = new CreateTxnV0();

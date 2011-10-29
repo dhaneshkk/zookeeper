@@ -40,8 +40,8 @@ import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.MultiTransactionRecord;
 import org.apache.zookeeper.Op;
-import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.KeeperException.Code;
+import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.PathUtils;
 import org.apache.zookeeper.data.ACL;
@@ -289,11 +289,11 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
      * @param request
      * @param record
      */
-    protected void pRequest2Txn(int type, long zxid, Request request, Record record) throws KeeperException {
-        request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), type));
+    protected void pRequest2Txn(OpCode type, long zxid, Request request, Record record) throws KeeperException {
+        request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), type.getInt()));
 
         switch (type) {
-            case OpCode.create:
+            case create:
                 CreateRequest createRequest = (CreateRequest)record;
                 String path = createRequest.getPath();
                 int lastSlash = path.lastIndexOf('/');
@@ -346,7 +346,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 addChangeRecord(parentRecord);
                 addChangeRecord(new ChangeRecord(request.getHdr().getZxid(), path, s, 0, listACL));
                 break;
-            case OpCode.delete:
+            case delete:
                 DeleteRequest deleteRequest = (DeleteRequest)record;
                 path = deleteRequest.getPath();
                 lastSlash = path.lastIndexOf('/');
@@ -368,7 +368,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 addChangeRecord(parentRecord);
                 addChangeRecord(new ChangeRecord(request.getHdr().getZxid(), path, null, -1, null));
                 break;
-            case OpCode.setData:
+            case setData:
                 SetDataRequest setDataRequest = (SetDataRequest)record;
                 path = setDataRequest.getPath();
                 nodeRecord = getRecordForPath(path);
@@ -379,7 +379,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 nodeRecord.stat.setVersion(newVersion);
                 addChangeRecord(nodeRecord);
                 break;
-            case OpCode.setACL:
+            case setACL:
                 SetACLRequest setAclRequest = (SetACLRequest)record;
                 path = setAclRequest.getPath();
                 listACL = removeDuplicates(setAclRequest.getAcl());
@@ -394,7 +394,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 nodeRecord.stat.setAversion(newVersion);
                 addChangeRecord(nodeRecord);
                 break;
-            case OpCode.createSession:
+            case createSession:
                 request.request.rewind();
                 int to = request.request.getInt();
                 request.setTxn(new CreateSessionTxn(to));
@@ -402,7 +402,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 zks.sessionTracker.addSession(request.sessionId, to);
                 zks.setOwner(request.sessionId, request.getOwner());
                 break;
-            case OpCode.closeSession:
+            case closeSession:
                 // We don't want to do this check since the session expiration thread
                 // queues up this operation without being the session owner.
                 // this request is the last of the session so it should be ok
@@ -425,7 +425,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 LOG.info("Processed session termination for sessionid: 0x"
                         + Long.toHexString(request.sessionId));
                 break;
-            case OpCode.check:
+            case check:
                 CheckVersionRequest checkVersionRequest = (CheckVersionRequest)record;
                 path = checkVersionRequest.getPath();
                 nodeRecord = getRecordForPath(path);
@@ -462,34 +462,15 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             }
 
             switch (request.type) {
-                case OpCode.create:
-                CreateRequest createRequest = new CreateRequest();
-                ByteBufferInputStream.byteBuffer2Record(request.request, createRequest);
-                pRequest2Txn(request.type, zks.getNextZxid(), request, createRequest);
+            case create:
+            case delete:
+            case setData:
+            case setACL:
+            case check:
+                pRequest2Txn(request.type, zks.getNextZxid(), request, request.deserializeRequestRecord());
                 break;
-            case OpCode.delete:
-                DeleteRequest deleteRequest = new DeleteRequest();
-                ByteBufferInputStream.byteBuffer2Record(request.request, deleteRequest);
-                pRequest2Txn(request.type, zks.getNextZxid(), request, deleteRequest);
-                break;
-            case OpCode.setData:
-                SetDataRequest setDataRequest = new SetDataRequest();
-                ByteBufferInputStream.byteBuffer2Record(request.request, setDataRequest);
-                pRequest2Txn(request.type, zks.getNextZxid(), request, setDataRequest);
-                break;
-            case OpCode.setACL:
-                SetACLRequest setAclRequest = new SetACLRequest();
-                ByteBufferInputStream.byteBuffer2Record(request.request, setAclRequest);
-                pRequest2Txn(request.type, zks.getNextZxid(), request, setAclRequest);
-                break;
-            case OpCode.check:
-                CheckVersionRequest checkRequest = new CheckVersionRequest();
-                ByteBufferInputStream.byteBuffer2Record(request.request, checkRequest);
-                pRequest2Txn(request.type, zks.getNextZxid(), request, checkRequest);
-                break;
-            case OpCode.multi:
-                MultiTransactionRecord multiRequest = new MultiTransactionRecord();
-                ByteBufferInputStream.byteBuffer2Record(request.request, multiRequest);
+            case multi:
+                MultiTransactionRecord multiRequest = (MultiTransactionRecord) request.deserializeRequestRecord();
                 List<Txn> txns = new ArrayList<Txn>();
 
                 //Each op in a multi-op must have the same zxid!
@@ -501,7 +482,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
 
                 for(Op op: multiRequest) {
                     Record subrequest = op.toRequestRecord();
-                    int type;
+                    OpCode type;
                     Record txn;
 
                     /* If we've already failed one of the ops, don't bother
@@ -517,7 +498,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     else {
                         try {
                             pRequest2Txn(op.getType(), zxid, request, subrequest);
-                            type = request.getHdr().getType();
+                            type = op.getType();
                             txn = request.getTxn();
                         } catch (KeeperException e) {
                             ke = e;
@@ -542,22 +523,22 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     txn.serialize(boa, "request") ;
                     ByteBuffer bb = ByteBuffer.wrap(baos.toByteArray());
 
-                    txns.add(new Txn(type, bb.array()));
+                    txns.add(new Txn(type.getInt(), bb.array()));
                 }
 
-                request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), request.type));
+                request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), request.type.getInt()));
                 request.setTxn(new MultiTxn(txns));
                 break;
 
             //create/close session don't require request record
-            case OpCode.createSession:
-            case OpCode.closeSession:
+            case createSession:
+            case closeSession:
                 pRequest2Txn(request.type, zks.getNextZxid(), request, null);
                 break;
             }
         } catch (KeeperException e) {
             if (request.getHdr() != null) {
-                request.getHdr().setType(OpCode.error);
+                request.getHdr().setType(OpCode.error.getInt());
                 request.setTxn(new ErrorTxn(e.code().intValue()));
             }
             LOG.info("Got user-level KeeperException when processing "
@@ -583,7 +564,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
 
             LOG.error("Dumping request buffer: 0x" + sb.toString());
             if (request.getHdr() != null) {
-                request.getHdr().setType(OpCode.error);
+                request.getHdr().setType(OpCode.error.getInt());
                 request.setTxn(new ErrorTxn(Code.MARSHALLINGERROR.intValue()));
             }
         }

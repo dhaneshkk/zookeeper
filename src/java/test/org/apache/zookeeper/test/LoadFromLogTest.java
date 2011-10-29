@@ -167,7 +167,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
      * Does create/delete depending on the type and verifies
      * if cversion before the operation is 1 less than cversion afer.
      */
-    private void doOp(FileTxnSnapLog logFile, int type, String path,
+    private void doOp(FileTxnSnapLog logFile, OpCode type, String path,
             DataTree dt, DataNode parent, int cversion) throws Exception {
         int lastSlash = path.lastIndexOf('/');
         String parentName = path.substring(0, lastSlash);
@@ -187,10 +187,10 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
         if (type == OpCode.delete) {
             txn = new DeleteTxn(path);
             txnHeader = new TxnHeader(0xabcd, 0x123, prevPzxid + 1,
-                System.currentTimeMillis(), OpCode.delete);
+                System.currentTimeMillis(), OpCode.delete.getInt());
         } else if (type == OpCode.create) {
             txnHeader = new TxnHeader(0xabcd, 0x123, prevPzxid + 1,
-                    System.currentTimeMillis(), OpCode.create);
+                    System.currentTimeMillis(), OpCode.create.getInt());
             txn = new CreateTxn(path, new byte[0], null, false, cversion);
         }
         logFile.processTransaction(txnHeader, dt, null, txn);
@@ -218,7 +218,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
         File tmpDir = ClientBase.createTmpDir();
         FileTxnLog txnLog = new FileTxnLog(tmpDir);
         TxnHeader txnHeader = new TxnHeader(0xabcd, 0x123, 0x123,
-              System.currentTimeMillis(), OpCode.create);
+              System.currentTimeMillis(), OpCode.create.getInt());
         Record txn = new CreateTxn("/Test", new byte[0], null, false, 1);
         txnLog.append(txnHeader, txn);
         FileInputStream in = new FileInputStream(tmpDir.getPath() + "/log." +

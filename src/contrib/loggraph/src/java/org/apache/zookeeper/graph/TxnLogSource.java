@@ -183,37 +183,37 @@ public class TxnLogSource implements LogSource {
 		TxnHeader hdr = new TxnHeader();
 		Record r = SerializeUtils.deserializeTxn(bytes, hdr);
 
-		switch (hdr.getType()) {
-		case OpCode.createSession: {
+		switch (OpCode.fromInt(hdr.getType())) {
+		case createSession: {
 		    e = new TransactionEntry(hdr.getTime(), hdr.getClientId(), hdr.getCxid(), hdr.getZxid(), "createSession");
 		}
 		    break;
-		case OpCode.closeSession: {
+		case closeSession: {
 		    e = new TransactionEntry(hdr.getTime(), hdr.getClientId(), hdr.getCxid(), hdr.getZxid(), "closeSession");
 		}
 		    break;
-		case OpCode.create:
+		case create:
 		    if (r != null) {
 			CreateTxn create = (CreateTxn)r;
 			String path = create.getPath();
 			e = new TransactionEntry(hdr.getTime(), hdr.getClientId(), hdr.getCxid(), hdr.getZxid(), "create", path);
 		    }
 		    break;
-		case OpCode.setData:
+		case setData:
 		    if (r != null) {
 			SetDataTxn set = (SetDataTxn)r;
 			String path = set.getPath();
 			e = new TransactionEntry(hdr.getTime(), hdr.getClientId(), hdr.getCxid(), hdr.getZxid(), "setData", path);
 		    }
 		    break;
-		case OpCode.setACL:
+		case setACL:
 		    if (r != null) {
 			SetACLTxn setacl = (SetACLTxn)r;
 			String path = setacl.getPath();
 		    e = new TransactionEntry(hdr.getTime(), hdr.getClientId(), hdr.getCxid(), hdr.getZxid(), "setACL", path);
 		    }
 		    break;
-		case OpCode.error:
+		case error:
 		    if (r != null)  {
 			ErrorTxn error = (ErrorTxn)r;
 			

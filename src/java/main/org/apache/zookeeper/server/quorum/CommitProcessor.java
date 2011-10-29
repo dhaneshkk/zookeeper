@@ -113,27 +113,17 @@ public class CommitProcessor extends Thread implements RequestProcessor {
                     // Process the next requests in the queuedRequests
                     while (nextPending == null && !queuedRequests.isEmpty()) {
                         Request request = queuedRequests.remove();
-                        switch (request.type) {
-                        case OpCode.create:
-                        case OpCode.delete:
-                        case OpCode.setData:
-                        case OpCode.multi:
-                        case OpCode.check:
-                        case OpCode.setACL:
-                        case OpCode.createSession:
-                        case OpCode.closeSession:
+                        if (request.type.isWriteOp()) {
                             nextPending = request;
-                            break;
-                        case OpCode.sync:
+                        } else if (request.type == OpCode.sync) {
                             if (matchSyncs) {
                                 nextPending = request;
                             } else {
                                 toProcess.add(request);
                             }
-                            break;
-                        default:
+                        } else {
                             toProcess.add(request);
-                        }
+ }
                     }
                 }
             }

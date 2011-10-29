@@ -172,7 +172,7 @@ public class Learner {
         DataOutputStream oa = new DataOutputStream(baos);
         oa.writeLong(request.sessionId);
         oa.writeInt(request.cxid);
-        oa.writeInt(request.type);
+        oa.writeInt(request.type.getInt());
         if (request.request != null) {
             request.request.rewind();
             int len = request.request.remaining();

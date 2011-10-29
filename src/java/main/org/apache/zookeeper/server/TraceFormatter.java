@@ -29,47 +29,6 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 
 public class TraceFormatter {
 
-    static String op2String(int op) {
-        switch (op) {
-        case OpCode.notification:
-            return "notification";
-        case OpCode.create:
-            return "create";
-        case OpCode.delete:
-            return "delete";
-        case OpCode.exists:
-            return "exists";
-        case OpCode.getData:
-            return "getDate";
-        case OpCode.setData:
-            return "setData";
-        case OpCode.multi:
-            return "multi";
-        case OpCode.getACL:
-            return "getACL";
-        case OpCode.setACL:
-            return "setACL";
-        case OpCode.getChildren:
-            return "getChildren";
-        case OpCode.getChildren2:
-            return "getChildren2";
-        case OpCode.ping:
-            return "ping";
-        case OpCode.createSession:
-            return "createSession";
-        case OpCode.closeSession:
-            return "closeSession";
-        case OpCode.error:
-            return "error";
-        default:
-            return "unknown " + op;
-        }
-    }
-
-    /**
-     * @param args
-     * @throws IOException
-     */
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
             System.err.println("USAGE: TraceFormatter trace_file");
@@ -87,7 +46,7 @@ public class TraceFormatter {
             int cxid = bb.getInt();
             long zxid = bb.getLong();
             int txnType = bb.getInt();
-            int type = bb.getInt();
+            OpCode type = OpCode.fromInt(bb.getInt());
             int len = bb.getInt();
             bb = ByteBuffer.allocate(len);
             fc.read(bb);
@@ -110,7 +69,7 @@ public class TraceFormatter {
                     + " cxid="
                     + cxid
                     + " op="
-                    + op2String(type)
+                    + type.longString
                     + " zxid=0x"
                     + Long.toHexString(zxid)
                     + " txnType="

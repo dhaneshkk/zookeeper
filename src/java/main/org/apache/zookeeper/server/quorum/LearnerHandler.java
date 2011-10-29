@@ -396,7 +396,6 @@ public class LearnerHandler extends Thread {
                 ByteBuffer bb;
                 long sessionId;
                 int cxid;
-                int type;
 
                 switch (qp.getType()) {
                 case Leader.ACK:
@@ -451,7 +450,7 @@ public class LearnerHandler extends Thread {
                     bb = ByteBuffer.wrap(qp.getData());
                     sessionId = bb.getLong();
                     cxid = bb.getInt();
-                    type = bb.getInt();
+                    OpCode type = OpCode.fromInt(bb.getInt());
                     bb = bb.slice();
                     Request si;
                     if(type == OpCode.sync){

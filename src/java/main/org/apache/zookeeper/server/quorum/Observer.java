@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 
 import org.apache.jute.Record;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.ObserverBean;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.util.SerializeUtils;
@@ -117,7 +118,8 @@ public class Observer extends Learner{
         case Leader.INFORM:
             TxnHeader hdr = new TxnHeader();
             Record txn = SerializeUtils.deserializeTxn(qp.getData(), hdr);
-            Request request = new Request (hdr.getClientId(),  hdr.getCxid(), hdr.getType(), hdr, txn, 0);
+            Request request = new Request (hdr.getClientId(),  hdr.getCxid(), OpCode.fromInt(hdr.getType()),
+                    hdr, txn, 0);
             ObserverZooKeeperServer obs = (ObserverZooKeeperServer)zk;
             obs.commitRequest(request);
             break;

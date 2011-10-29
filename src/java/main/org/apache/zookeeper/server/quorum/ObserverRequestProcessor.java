@@ -81,21 +81,11 @@ public class ObserverRequestProcessor extends Thread implements
                 // path, but different from others, we need to keep track
                 // of the sync operations this Observer has pending, so we
                 // add it to pendingSyncs.
-                switch (request.type) {
-                case OpCode.sync:
+                if(request.type == OpCode.sync) {
                     zks.pendingSyncs.add(request);
                     zks.getObserver().request(request);
-                    break;
-                case OpCode.create:
-                case OpCode.delete:
-                case OpCode.setData:
-                case OpCode.setACL:
-                case OpCode.createSession:
-                case OpCode.closeSession:
-                case OpCode.multi:
-                case OpCode.check:
+                } else if(request.type.isWriteOp()) {
                     zks.getObserver().request(request);
-                    break;
                 }
             }
         } catch (Exception e) {

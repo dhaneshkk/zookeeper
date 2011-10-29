@@ -684,7 +684,7 @@ public class DataTree {
 
         public int err;
 
-        public int type;
+        public OpCode type;
 
         public String path;
 
@@ -731,11 +731,11 @@ public class DataTree {
             rc.clientId = header.getClientId();
             rc.cxid = header.getCxid();
             rc.zxid = header.getZxid();
-            rc.type = header.getType();
+            rc.type = OpCode.fromInt(header.getType());
             rc.err = 0;
             rc.multiResult = null;
-            switch (header.getType()) {
-                case OpCode.create:
+            switch (OpCode.fromInt(header.getType())) {
+                case create:
                     CreateTxn createTxn = (CreateTxn) txn;
                     debug = "Create transaction for " + createTxn.getPath();
                     rc.path = createTxn.getPath();
@@ -747,13 +747,13 @@ public class DataTree {
                             createTxn.getParentCVersion(),
                             header.getZxid(), header.getTime());
                     break;
-                case OpCode.delete:
+                case delete:
                     DeleteTxn deleteTxn = (DeleteTxn) txn;
                     debug = "Delete transaction for " + deleteTxn.getPath();
                     rc.path = deleteTxn.getPath();
                     deleteNode(deleteTxn.getPath(), header.getZxid());
                     break;
-                case OpCode.setData:
+                case setData:
                     SetDataTxn setDataTxn = (SetDataTxn) txn;
                     debug = "Set data transaction for "
                             + setDataTxn.getPath()
@@ -762,21 +762,21 @@ public class DataTree {
                             .getData(), setDataTxn.getVersion(), header
                             .getZxid(), header.getTime());
                     break;
-                case OpCode.setACL:
+                case setACL:
                     SetACLTxn setACLTxn = (SetACLTxn) txn;
                     debug = "Set ACL transaction for "
                             + setACLTxn.getPath();
                     rc.stat = setACL(setACLTxn.getPath(), setACLTxn.getAcl(),
                             setACLTxn.getVersion());
                     break;
-                case OpCode.closeSession:
+                case closeSession:
                     killSession(header.getClientId(), header.getZxid());
                     break;
-                case OpCode.error:
+                case error:
                     ErrorTxn errTxn = (ErrorTxn) txn;
                     rc.err = errTxn.getErr();
                     break;
-                case OpCode.check:
+                case check:
                     CheckVersionTxn checkTxn = (CheckVersionTxn) txn;
                     debug = "Check Version transaction for "
                             + checkTxn.getPath()
@@ -784,24 +784,24 @@ public class DataTree {
                             + checkTxn.getVersion();
                     rc.path = checkTxn.getPath();
                     break;
-                case OpCode.multi:
+                case multi:
                     MultiTxn multiTxn = (MultiTxn) txn ;
                     List<Txn> txns = multiTxn.getTxns();
                     debug = "Multi transaction with " + txns.size() + " operations";
                     rc.multiResult = new ArrayList<ProcessTxnResult>();
                     boolean failed = false;
                     for (Txn subtxn : txns) {
-                        if (subtxn.getType() == OpCode.error) {
+                        if (OpCode.error.is(subtxn.getType())) {
                             failed = true;
                             break;
                         }
                     }
 
-                    boolean post_failed = false;
+                    boolean postFailed = false;
                     for (Txn subtxn : txns) {
-                        int type = subtxn.getType();
+                        OpCode type = OpCode.fromInt(subtxn.getType());
                         if(type == OpCode.error) {
-                            post_failed = true;
+                            postFailed = true;
                         } else if(type != OpCode.create && type != OpCode.delete
                                 && type != OpCode.setData && type != OpCode.check) {
                             throw new IOException("Invalid type of op: " + type);
@@ -810,11 +810,11 @@ public class DataTree {
                         ByteBufferInputStream.byteBuffer2Record(
                                 ByteBuffer.wrap(subtxn.getData()), record);
 
-                        if (failed && subtxn.getType() != OpCode.error){
-                            int ec = post_failed ? Code.RUNTIMEINCONSISTENCY.intValue()
+                        if (failed && type != OpCode.error){
+                            int ec = postFailed ? Code.RUNTIMEINCONSISTENCY.intValue()
                                                  : Code.OK.intValue();
 
-                            subtxn.setType(OpCode.error);
+                            subtxn.setType(OpCode.error.getInt());
                             record = new ErrorTxn(ec);
                         }
 

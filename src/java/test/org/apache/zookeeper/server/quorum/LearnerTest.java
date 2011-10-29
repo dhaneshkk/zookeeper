@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.zookeeper.ZKTestCase;
-import org.apache.zookeeper.ZooDefs;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
@@ -97,7 +97,7 @@ public class LearnerTest extends ZKTestCase {
             oa.writeRecord(qp, null);
             sl.zk.getZKDatabase().serializeSnapshot(oa);
             oa.writeString("BenWasHere", "signature");
-            TxnHeader hdr = new TxnHeader(0, 0, 0, 0, ZooDefs.OpCode.create);
+            TxnHeader hdr = new TxnHeader(0, 0, 0, 0, OpCode.create.getInt());
             CreateTxn txn = new CreateTxn("/foo", new byte[0], new ArrayList<ACL>(), false, sl.zk.getZKDatabase().getNode("/").stat.getCversion());
             ByteArrayOutputStream tbaos = new ByteArrayOutputStream();
             BinaryOutputArchive boa = BinaryOutputArchive.getArchive(tbaos);

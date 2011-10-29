@@ -109,8 +109,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                         sentCount++;
                         Packet p = outgoingQueue.removeFirst();
                         if (p.requestHeader != null
-                                && p.requestHeader.getType() != OpCode.ping
-                                && p.requestHeader.getType() != OpCode.auth) {
+                                && OpCode.ping.isNot(p.requestHeader.getType())
+                                && OpCode.auth.isNot(p.requestHeader.getType())) {
                             pending.add(p);
                         }
                     }
@@ -166,7 +166,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
         sockKey = null;
     }
- 
+
     @Override
     void close() {
         try {
@@ -210,7 +210,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     /**
      * Returns the address to which the socket is connected.
-     * 
+     *
      * @return ip address of the remote side of the connection or null if not
      *         connected
      */
@@ -221,7 +221,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     /**
      * Returns the local address to which the socket is bound.
-     * 
+     *
      * @return ip address of the remote side of the connection or null if not
      *         connected
      */
@@ -229,7 +229,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     SocketAddress getLocalSocketAddress() {
         return localSocketAddress;
     }
-    
+
     private void updateSocketAddresses() {
         Socket socket = ((SocketChannel) sockKey.channel()).socket();
         localSocketAddress = socket.getLocalSocketAddress();
@@ -240,7 +240,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     synchronized void wakeupCnxn() {
         selector.wakeup();
     }
-    
+
     @Override
     void doTransport(int waitTimeOut, List<Packet> pendingQueue, LinkedList<Packet> outgoingQueue )
             throws IOException, InterruptedException {

@@ -21,12 +21,12 @@ package org.apache.zookeeper.client;
 import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.ClientCnxn;
 import org.apache.zookeeper.Login;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.GetSASLRequest;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.proto.RequestHeader;
 import org.apache.zookeeper.proto.SetSASLResponse;
-import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.server.auth.KerberosName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,10 +54,10 @@ import javax.security.sasl.SaslException;
 public class ZooKeeperSaslClient {
     private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperSaslClient.class);
     private static Login login = null;
-    private SaslClient saslClient;
+    private final SaslClient saslClient;
 
     private byte[] saslToken = new byte[0];
-    private ClientCnxn cnxn;
+    private final ClientCnxn cnxn;
 
     public enum SaslState {
         INITIAL,INTERMEDIATE,COMPLETE,FAILED
@@ -237,7 +237,7 @@ public class ZooKeeperSaslClient {
     public void queueSaslPacket(byte[] saslToken) {
         LOG.debug("ClientCnxn:sendSaslPacket:length="+saslToken.length);
         RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.sasl);
+        h.setType(OpCode.sasl.getInt());
         GetSASLRequest request = new GetSASLRequest();
         request.setToken(saslToken);
         SetSASLResponse response = new SetSASLResponse();
