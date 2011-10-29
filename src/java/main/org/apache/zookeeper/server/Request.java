@@ -34,7 +34,7 @@ import org.apache.zookeeper.txn.TxnHeader;
  * onto the request as it is processed.
  */
 public final class Request {
-    public final static Request requestOfDeath = new Request(Meta.EMPTY, null, null, null);
+    public final static Request requestOfDeath = new Request(Meta.EMPTY, null);
 
     private final Meta meta;
 
@@ -52,6 +52,10 @@ public final class Request {
         this.request = request;
         this.hdr = hdr;
         this.txn = txn;
+    }
+
+    public Request(Meta meta, ByteBuffer request) {
+        this(meta, request, null, null);
     }
 
     public TxnHeader getHdr() {

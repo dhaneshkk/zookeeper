@@ -565,7 +565,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     private void submitRequest(ServerCnxn cnxn, long sessionId, OpCode type,
             int cxid, ByteBuffer bb, List<Identifier> authInfo) {
         Meta meta = new Meta(sessionId, cxid, -1l, type, cnxn, authInfo, null);
-        Request si = new Request(meta, bb, null, null);
+        Request si = new Request(meta, bb);
         submitRequest(si);
     }
 
@@ -840,7 +840,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             }
             else {
                 Meta meta = new Meta(cnxn.getSessionId(), h.getXid(), -1l, OpCode.fromInt(h.getType()), cnxn, cnxn.getAuthInfo(), ServerCnxn.me);
-                Request si = new Request(meta, incomingBuffer, null, null);
+                Request si = new Request(meta, incomingBuffer);
                 submitRequest(si);
             }
         }

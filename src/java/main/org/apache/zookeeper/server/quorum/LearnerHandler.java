@@ -436,7 +436,7 @@ public class LearnerHandler extends Thread {
                     Request si;
                     List<Identifier> authInfo = Identifier.fromJuteIdList(qp.getAuthinfo());
                     Meta meta = new Meta(sessionId, cxid, -1l, type, null, authInfo, this);
-                    si = new Request(meta, bb, null, null);
+                    si = new Request(meta, bb);
                     leader.zk.submitRequest(si);
                     break;
                 default:

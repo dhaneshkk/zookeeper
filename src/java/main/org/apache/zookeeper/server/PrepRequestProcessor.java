@@ -395,10 +395,8 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
      * @param request
      */
     protected void pRequest(Request request) {
-        // LOG.info("Prep>>> cxid = " + request.cxid + " type = " +
-        // request.type + " id = 0x" + Long.toHexString(request.sessionId));
-        request.setHdr(null);
-        request.setTxn(null);
+        if(request.getHdr() != null) throw new RuntimeException("expected request hdr to be null: " + request);
+        if(request.getTxn() != null) throw new RuntimeException("expected request txn to be null: " + request);
 
         try {
             if(request.getMeta().getType() != OpCode.createSession && request.getMeta().getType() != OpCode.closeSession) {
