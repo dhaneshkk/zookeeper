@@ -533,12 +533,7 @@ public class DataTree {
             }
             updateBytes(lastPrefix, bytes);
         }
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
-                    "dataWatches.triggerWatch " + path);
-            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
-                    "childWatches.triggerWatch " + parentName);
-        }
+
         Set<Watcher> processed = dataWatches.triggerWatch(path,
                 EventType.NodeDeleted);
         childWatches.triggerWatch(path, EventType.NodeDeleted, processed);

@@ -72,7 +72,6 @@ import org.apache.zookeeper.proto.SetSASLResponse;
 import org.apache.zookeeper.proto.SetWatches;
 import org.apache.zookeeper.proto.WatcherEvent;
 import org.apache.zookeeper.server.ByteBufferInputStream;
-import org.apache.zookeeper.server.ZooTrace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,7 +151,7 @@ public class ClientCnxn {
      * server on the other side of the wire is partitioned it'll accept
      * read-only clients only.
      */
-    private boolean readOnly;
+    private final boolean readOnly;
 
     final String chrootPath;
 
@@ -167,7 +166,7 @@ public class ClientCnxn {
      * operation)
      */
     private volatile boolean closing = false;
-    
+
     /**
      * A set of ZooKeeper hosts this client could connect to.
      */
@@ -405,7 +404,7 @@ public class ClientCnxn {
         eventThread.start();
     }
 
-    private Object eventOfDeath = new Object();
+    private final Object eventOfDeath = new Object();
 
     private final static UncaughtExceptionHandler uncaughtExceptionHandler = new UncaughtExceptionHandler() {
         @Override
@@ -666,7 +665,7 @@ public class ClientCnxn {
         public EndOfStreamException(String msg) {
             super(msg);
         }
-        
+
         @Override
         public String toString() {
             return "EndOfStreamException: " + getMessage();
@@ -680,7 +679,7 @@ public class ClientCnxn {
             super(msg);
         }
     }
-    
+
     private static class SessionExpiredException extends IOException {
         private static final long serialVersionUID = -1388816932076193249L;
 
@@ -696,7 +695,7 @@ public class ClientCnxn {
             super(msg);
         }
     }
-    
+
     public static final int packetLen = Integer.getInteger("jute.maxbuffer",
             4096 * 1024);
 
@@ -707,7 +706,7 @@ public class ClientCnxn {
     class SendThread extends Thread {
         private long lastPingSentNs;
         private final ClientCnxnSocket clientCnxnSocket;
-        private Random r = new Random(System.nanoTime());        
+        private final Random r = new Random(System.nanoTime());
         private boolean isFirstConnect = true;
 
         void readResponse(ByteBuffer incomingBuffer) throws IOException {
@@ -729,11 +728,11 @@ public class ClientCnxn {
                 return;
             }
             if (replyHdr.getXid() == -4) {
-                // -4 is the xid for AuthPacket               
+                // -4 is the xid for AuthPacket
                 if(replyHdr.getErr() == KeeperException.Code.AUTHFAILED.intValue()) {
-                    state = States.AUTH_FAILED;                    
-                    eventThread.queueEvent( new WatchedEvent(Watcher.Event.EventType.None, 
-                            Watcher.Event.KeeperState.AuthFailed, null) );            		            		
+                    state = States.AUTH_FAILED;
+                    eventThread.queueEvent( new WatchedEvent(Watcher.Event.EventType.None,
+                            Watcher.Event.KeeperState.AuthFailed, null) );
                 }
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Got auth sessionid:0x"
@@ -831,7 +830,7 @@ public class ClientCnxn {
         // Runnable
         /**
          * Used by ClientCnxnSocket
-         * 
+         *
          * @return
          */
         ZooKeeper.States getZkState() {
@@ -961,7 +960,7 @@ public class ClientCnxn {
 
         private static final String RETRY_CONN_MSG =
             ", closing socket connection and attempting reconnect";
-        
+
         @Override
         public void run() {
             clientCnxnSocket.introduce(this,sessionId);
@@ -1002,7 +1001,7 @@ public class ClientCnxn {
                     } else {
                         to = connectTimeout - clientCnxnSocket.getIdleRecv();
                     }
-                    
+
                     if (to <= 0) {
                         throw new SessionTimeoutException(
                                 "Client session timed out, have not heard from server in "
@@ -1086,8 +1085,6 @@ public class ClientCnxn {
                 eventThread.queueEvent(new WatchedEvent(Event.EventType.None,
                         Event.KeeperState.Disconnected, null));
             }
-            ZooTrace.logTraceMessage(LOG, ZooTrace.getTextTraceLevel(),
-                                     "SendThread exitedloop.");
         }
 
         private void pingRwServer() throws RWServerFoundException {
@@ -1146,7 +1143,7 @@ public class ClientCnxn {
         /**
          * Callback invoked by the ClientCnxnSocket once a connection has been
          * established.
-         * 
+         *
          * @param _negotiatedSessionTimeout
          * @param _sessionId
          * @param _sessionPasswd

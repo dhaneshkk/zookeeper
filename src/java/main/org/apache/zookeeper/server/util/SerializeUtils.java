@@ -26,16 +26,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.DataTree;
-import org.apache.zookeeper.server.ZooTrace;
 import org.apache.zookeeper.txn.CheckVersionTxn;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
@@ -48,8 +44,6 @@ import org.apache.zookeeper.txn.TxnHeader;
 import org.apache.zookeeper.txn.MultiTxn;
 
 public class SerializeUtils {
-    private static final Logger LOG = LoggerFactory.getLogger(SerializeUtils.class);
-
     private static final Map<OpCode, Class<? extends Record>> type2txnRecordClass
         = new EnumMap<OpCode, Class<? extends Record>>(OpCode.class);
     static {
@@ -112,11 +106,6 @@ public class SerializeUtils {
             long id = ia.readLong("id");
             int to = ia.readInt("timeout");
             sessions.put(id, to);
-            if (LOG.isTraceEnabled()) {
-                ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                        "loadData --- session in archive: " + id
-                        + " with timeout: " + to);
-            }
             count--;
         }
         dt.deserialize(ia, "tree");

@@ -288,11 +288,6 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
     protected void killSession(long sessionId, long zxid) {
         zkDb.killSession(sessionId, zxid);
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                                         "ZooKeeperServer --- killSession: 0x"
-                    + Long.toHexString(sessionId));
-        }
         if (sessionTracker != null) {
             sessionTracker.removeSession(sessionId);
         }
@@ -489,13 +484,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
     protected void revalidateSession(ServerCnxn cnxn, long sessionId,
             int sessionTimeout) throws IOException {
-        boolean rc = sessionTracker.touchSession(sessionId, sessionTimeout);
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG,ZooTrace.SESSION_TRACE_MASK,
-                                     "Session 0x" + Long.toHexString(sessionId) +
-                    " is valid: " + rc);
-        }
-        finishSessionInit(cnxn, rc);
+        boolean valid = sessionTracker.touchSession(sessionId, sessionTimeout);
+        finishSessionInit(cnxn, valid);
     }
 
     public void reopenSession(ServerCnxn cnxn, long sessionId, byte[] passwd,
@@ -542,7 +532,6 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                         + " for client "
                         + cnxn.getRemoteSocketAddress());
             } else {
-
                 LOG.info("Invalid session 0x"
                         + Long.toHexString(cnxn.getSessionId())
                         + " for client "

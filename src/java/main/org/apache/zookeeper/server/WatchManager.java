@@ -24,8 +24,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Map.Entry;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.Watcher.Event.EventType;
@@ -36,8 +34,6 @@ import org.apache.zookeeper.Watcher.Event.KeeperState;
  * and removes watchers and their watches in addition to managing triggers.
  */
 class WatchManager {
-    private static final Logger LOG = LoggerFactory.getLogger(WatchManager.class);
-
     private final HashMap<String, HashSet<Watcher>> watchTable =
         new HashMap<String, HashSet<Watcher>>();
 
@@ -99,11 +95,6 @@ class WatchManager {
         synchronized (this) {
             watchers = watchTable.remove(path);
             if (watchers == null || watchers.isEmpty()) {
-                if (LOG.isTraceEnabled()) {
-                    ZooTrace.logTraceMessage(LOG,
-                            ZooTrace.EVENT_DELIVERY_TRACE_MASK,
-                            "No watchers for " + path);
-                }
                 return null;
             }
             for (Watcher w : watchers) {

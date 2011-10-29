@@ -160,12 +160,6 @@ public class SessionTrackerImpl extends Thread implements SessionTracker {
     }
 
     synchronized public boolean touchSession(long sessionId, int timeout) {
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG,
-                                     ZooTrace.CLIENT_PING_TRACE_MASK,
-                                     "SessionTrackerImpl --- Touch session: 0x"
-                    + Long.toHexString(sessionId) + " with timeout " + timeout);
-        }
         SessionImpl s = sessionsById.get(sessionId);
         if (s == null) {
             return false;
@@ -192,11 +186,6 @@ public class SessionTrackerImpl extends Thread implements SessionTracker {
     synchronized public void removeSession(long sessionId) {
         SessionImpl s = sessionsById.remove(sessionId);
         sessionsWithTimeout.remove(sessionId);
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                    "SessionTrackerImpl --- Removing session 0x"
-                    + Long.toHexString(sessionId));
-        }
         if (s != null) {
             sessionSets.get(s.tickTime).sessions.remove(s);
         }
@@ -206,12 +195,7 @@ public class SessionTrackerImpl extends Thread implements SessionTracker {
         LOG.info("Shutting down");
 
         running = false;
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.getTextTraceLevel(),
-                                     "Shutdown SessionTrackerImpl!");
-        }
     }
-
 
     synchronized public long createSession(int sessionTimeout) {
         addSession(nextSessionId, sessionTimeout);
@@ -223,17 +207,6 @@ public class SessionTrackerImpl extends Thread implements SessionTracker {
         if (sessionsById.get(id) == null) {
             SessionImpl s = new SessionImpl(id, sessionTimeout, 0);
             sessionsById.put(id, s);
-            if (LOG.isTraceEnabled()) {
-                ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                        "SessionTrackerImpl --- Adding session 0x"
-                        + Long.toHexString(id) + " " + sessionTimeout);
-            }
-        } else {
-            if (LOG.isTraceEnabled()) {
-                ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                        "SessionTrackerImpl --- Existing session 0x"
-                        + Long.toHexString(id) + " " + sessionTimeout);
-            }
         }
         touchSession(id, sessionTimeout);
     }

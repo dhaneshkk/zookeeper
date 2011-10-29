@@ -59,6 +59,7 @@ import com.sun.management.UnixOperatingSystemMXBean;
 
 public class NettyServerCnxn extends ServerCnxn {
     Logger LOG = LoggerFactory.getLogger(NettyServerCnxn.class);
+
     Channel channel;
     ChannelBuffer queuedBuffer;
     volatile boolean throttled;
@@ -76,7 +77,7 @@ public class NettyServerCnxn extends ServerCnxn {
 
     NettyServerCnxnFactory factory;
     boolean initialized;
-    
+
     NettyServerCnxn(Channel channel, ZooKeeperServer zks, NettyServerCnxnFactory factory) {
         this.channel = channel;
         this.zkServer = zks;
@@ -85,7 +86,7 @@ public class NettyServerCnxn extends ServerCnxn {
             this.zooKeeperSaslServer = new ZooKeeperSaslServer(factory.login);
         }
     }
-    
+
     @Override
     public void close() {
         if (LOG.isDebugEnabled()) {
@@ -111,7 +112,7 @@ public class NettyServerCnxn extends ServerCnxn {
                             .getRemoteAddress()).getAddress());
                 s.remove(this);
             }
-    
+
             if (channel.isOpen()) {
                 channel.close();
             }
@@ -132,12 +133,6 @@ public class NettyServerCnxn extends ServerCnxn {
     @Override
     public void process(WatchedEvent event) {
         ReplyHeader h = new ReplyHeader(-1, -1L, 0);
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
-                                     "Deliver event " + event + " to 0x"
-                                     + Long.toHexString(this.sessionId)
-                                     + " through " + this);
-        }
 
         // Convert WatchedEvent to a type that can be sent over the wire
         WatcherEvent e = event.getWrapper();
@@ -163,7 +158,7 @@ public class NettyServerCnxn extends ServerCnxn {
         public Channel getChannel() {return channel;}
         public ChannelFuture getFuture() {return null;}
     };
-    
+
     @Override
     public void sendResponse(ReplyHeader h, Record r, String tag)
             throws IOException {
@@ -224,7 +219,7 @@ public class NettyServerCnxn extends ServerCnxn {
     /**
      * clean up the socket related to a command and also make sure we flush the
      * data before we do that
-     * 
+     *
      * @param pwriter
      *            the pwriter for a command socket
      */
@@ -253,7 +248,7 @@ public class NettyServerCnxn extends ServerCnxn {
      */
     private class SendBufferWriter extends Writer {
         private StringBuffer sb = new StringBuffer();
-        
+
         /**
          * Check if we are ready to send another chunk.
          * @param force force sending, even if not a full chunk
@@ -287,7 +282,7 @@ public class NettyServerCnxn extends ServerCnxn {
 
     private static final String ZK_NOT_SERVING =
         "This ZooKeeper instance is not currently serving requests";
-    
+
     /**
      * Set of threads for commmand ports. All the 4
      * letter commands are run via a thread. Each class
@@ -296,11 +291,11 @@ public class NettyServerCnxn extends ServerCnxn {
      */
     private abstract class CommandThread /*extends Thread*/ {
         PrintWriter pw;
-        
+
         CommandThread(PrintWriter pw) {
             this.pw = pw;
         }
-        
+
         public void start() {
             run();
         }
@@ -314,52 +309,27 @@ public class NettyServerCnxn extends ServerCnxn {
                 cleanupWriterSocket(pw);
             }
         }
-        
+
         public abstract void commandRun() throws IOException;
     }
-    
+
     private class RuokCommand extends CommandThread {
         public RuokCommand(PrintWriter pw) {
             super(pw);
         }
-        
+
         @Override
         public void commandRun() {
             pw.print("imok");
-            
+
         }
     }
-    
-    private class TraceMaskCommand extends CommandThread {
-        TraceMaskCommand(PrintWriter pw) {
-            super(pw);
-        }
-        
-        @Override
-        public void commandRun() {
-            long traceMask = ZooTrace.getTextTraceLevel();
-            pw.print(traceMask);
-        }
-    }
-    
-    private class SetTraceMaskCommand extends CommandThread {
-        long trace = 0;
-        SetTraceMaskCommand(PrintWriter pw, long trace) {
-            super(pw);
-            this.trace = trace;
-        }
-        
-        @Override
-        public void commandRun() {
-            pw.print(trace);
-        }
-    }
-    
+
     private class EnvCommand extends CommandThread {
         EnvCommand(PrintWriter pw) {
             super(pw);
         }
-        
+
         @Override
         public void commandRun() {
             List<Environment.Entry> env = Environment.list();
@@ -370,15 +340,15 @@ public class NettyServerCnxn extends ServerCnxn {
                 pw.print("=");
                 pw.println(e.getValue());
             }
-            
-        } 
+
+        }
     }
-    
+
     private class ConfCommand extends CommandThread {
         ConfCommand(PrintWriter pw) {
             super(pw);
         }
-            
+
         @Override
         public void commandRun() {
             if (zkServer == null) {
@@ -388,29 +358,29 @@ public class NettyServerCnxn extends ServerCnxn {
             }
         }
     }
-    
+
     private class StatResetCommand extends CommandThread {
         public StatResetCommand(PrintWriter pw) {
             super(pw);
         }
-        
+
         @Override
         public void commandRun() {
             if (zkServer == null) {
                 pw.println(ZK_NOT_SERVING);
             }
-            else { 
+            else {
                 zkServer.serverStats().reset();
                 pw.println("Server stats reset.");
             }
         }
     }
-    
+
     private class CnxnStatResetCommand extends CommandThread {
         public CnxnStatResetCommand(PrintWriter pw) {
             super(pw);
         }
-        
+
         @Override
         public void commandRun() {
             if (zkServer == null) {
@@ -430,7 +400,7 @@ public class NettyServerCnxn extends ServerCnxn {
         public DumpCommand(PrintWriter pw) {
             super(pw);
         }
-        
+
         @Override
         public void commandRun() {
             if (zkServer == null) {
@@ -444,20 +414,20 @@ public class NettyServerCnxn extends ServerCnxn {
             }
         }
     }
-    
+
     private class StatCommand extends CommandThread {
         int len;
         public StatCommand(PrintWriter pw, int len) {
             super(pw);
             this.len = len;
         }
-        
+
         @Override
         public void commandRun() {
             if (zkServer == null) {
                 pw.println(ZK_NOT_SERVING);
             }
-            else {   
+            else {
                 pw.print("Zookeeper version: ");
                 pw.println(Version.getFullVersion());
                 if (zkServer instanceof ReadOnlyZooKeeperServer) {
@@ -483,15 +453,15 @@ public class NettyServerCnxn extends ServerCnxn {
                 pw.print("Node count: ");
                 pw.println(zkServer.getZKDatabase().getNodeCount());
             }
-            
+
         }
     }
-    
+
     private class ConsCommand extends CommandThread {
         public ConsCommand(PrintWriter pw) {
             super(pw);
         }
-        
+
         @Override
         public void commandRun() {
             if (zkServer == null) {
@@ -511,7 +481,7 @@ public class NettyServerCnxn extends ServerCnxn {
             }
         }
     }
-    
+
     private class WatchCommand extends CommandThread {
         int len = 0;
         public WatchCommand(PrintWriter pw, int len) {
@@ -638,20 +608,6 @@ public class NettyServerCnxn extends ServerCnxn {
         if (len == ruokCmd) {
             RuokCommand ruok = new RuokCommand(pwriter);
             ruok.start();
-            return true;
-        } else if (len == getTraceMaskCmd) {
-            TraceMaskCommand tmask = new TraceMaskCommand(pwriter);
-            tmask.start();
-            return true;
-        } else if (len == setTraceMaskCmd) {
-            ByteBuffer mask = ByteBuffer.allocate(4);
-            message.readBytes(mask);
-
-            bb.flip();
-            long traceMask = mask.getLong();
-            ZooTrace.setTextTraceLevel(traceMask);
-            SetTraceMaskCommand setMask = new SetTraceMaskCommand(pwriter, traceMask);
-            setMask.start();
             return true;
         } else if (len == enviCmd) {
             EnvCommand env = new EnvCommand(pwriter);

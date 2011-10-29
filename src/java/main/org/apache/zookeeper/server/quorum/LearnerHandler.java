@@ -40,7 +40,6 @@ import org.apache.zookeeper.KeeperException.SessionExpiredException;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.ByteBufferInputStream;
 import org.apache.zookeeper.server.Request;
-import org.apache.zookeeper.server.ZooTrace;
 import org.apache.zookeeper.server.quorum.Leader.Proposal;
 import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
 import org.apache.zookeeper.server.util.ZxidUtils;
@@ -123,7 +122,6 @@ public class LearnerHandler extends Thread {
      * @throws InterruptedException
      */
     private void sendPackets() throws InterruptedException {
-        long traceMask = ZooTrace.SERVER_PACKET_TRACE_MASK;
         while (true) {
             try {
                 QuorumPacket p;
@@ -136,12 +134,6 @@ public class LearnerHandler extends Thread {
                 if (p == proposalOfDeath) {
                     // Packet of death!
                     break;
-                }
-                if (p.getType() == Leader.PING) {
-                    traceMask = ZooTrace.SERVER_PING_TRACE_MASK;
-                }
-                if (LOG.isTraceEnabled()) {
-                    ZooTrace.logQuorumPacket(LOG, traceMask, 'o', p);
                 }
                 oa.writeRecord(p, "packet");
             } catch (IOException e) {
@@ -383,14 +375,6 @@ public class LearnerHandler extends Thread {
             while (true) { // TODO: move the loop in a separate method, this one is long enough.
                 qp = new QuorumPacket();
                 ia.readRecord(qp, "packet");
-
-                long traceMask = ZooTrace.SERVER_PACKET_TRACE_MASK;
-                if (qp.getType() == Leader.PING) {
-                    traceMask = ZooTrace.SERVER_PING_TRACE_MASK;
-                }
-                if (LOG.isTraceEnabled()) {
-                    ZooTrace.logQuorumPacket(LOG, traceMask, 'i', qp);
-                }
                 tickOfLastAck = leader.self.tick;
 
                 ByteBuffer bb;
@@ -436,12 +420,7 @@ public class LearnerHandler extends Thread {
                             LOG.error("Somehow session " + Long.toHexString(id) + " expired right after being renewed! (impossible)", e);
                         }
                     }
-                    if (LOG.isTraceEnabled()) {
-                        ZooTrace.logTraceMessage(LOG,
-                                                 ZooTrace.SESSION_TRACE_MASK,
-                                                 "Session 0x" + Long.toHexString(id)
-                                                 + " is valid: "+ valid);
-                    }
+
                     dos.writeBoolean(valid);
                     qp.setData(bos.toByteArray());
                     queuedPackets.add(qp);

@@ -22,12 +22,10 @@ import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.zookeeper.KeeperException.Code;
-import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.proto.ReplyHeader;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.ZooKeeperServer;
-import org.apache.zookeeper.server.ZooTrace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +36,6 @@ import org.slf4j.LoggerFactory;
  * state-changing operations (e.g. OpCode.create, OpCode.setData).
  */
 public class ReadOnlyRequestProcessor extends Thread implements RequestProcessor {
-
     private static final Logger LOG = LoggerFactory.getLogger(ReadOnlyRequestProcessor.class);
 
     private final LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
@@ -60,14 +57,6 @@ public class ReadOnlyRequestProcessor extends Thread implements RequestProcessor
             while (!finished) {
                 Request request = queuedRequests.take();
 
-                // log request
-                long traceMask = ZooTrace.CLIENT_REQUEST_TRACE_MASK;
-                if (request.type == OpCode.ping) {
-                    traceMask = ZooTrace.CLIENT_PING_TRACE_MASK;
-                }
-                if (LOG.isTraceEnabled()) {
-                    ZooTrace.logRequest(LOG, traceMask, 'R', request, "");
-                }
                 if (Request.requestOfDeath == request) {
                     break;
                 }

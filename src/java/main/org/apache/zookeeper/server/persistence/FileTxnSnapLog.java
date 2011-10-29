@@ -31,7 +31,6 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.DataTree.ProcessTxnResult;
 import org.apache.zookeeper.server.Request;
-import org.apache.zookeeper.server.ZooTrace;
 import org.apache.zookeeper.server.persistence.TxnLog.TxnIterator;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
@@ -174,23 +173,11 @@ public class FileTxnSnapLog {
         case createSession:
             sessions.put(hdr.getClientId(),
                     ((CreateSessionTxn) txn).getTimeOut());
-            if (LOG.isTraceEnabled()) {
-                ZooTrace.logTraceMessage(LOG,ZooTrace.SESSION_TRACE_MASK,
-                        "playLog --- create session in log: "
-                                + Long.toHexString(hdr.getClientId())
-                                + " with timeout: "
-                                + ((CreateSessionTxn) txn).getTimeOut());
-            }
             // give dataTree a chance to sync its lastProcessedZxid
             rc = dt.processTxn(hdr, txn);
             break;
         case closeSession:
             sessions.remove(hdr.getClientId());
-            if (LOG.isTraceEnabled()) {
-                ZooTrace.logTraceMessage(LOG,ZooTrace.SESSION_TRACE_MASK,
-                        "playLog --- close session in log: "
-                                + Long.toHexString(hdr.getClientId()));
-            }
             rc = dt.processTxn(hdr, txn);
             break;
         default:

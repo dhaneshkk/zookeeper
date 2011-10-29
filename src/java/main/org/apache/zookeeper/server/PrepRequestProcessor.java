@@ -97,6 +97,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
     ZooKeeperServer zks;
 
     public PrepRequestProcessor(ZooKeeperServer zks, RequestProcessor nextProcessor) {
+
         super("ProcessThread(sid:" + zks.getServerId()
                 + " cport:" + zks.getClientPort() + "):");
         this.nextProcessor = nextProcessor;
@@ -115,13 +116,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
         try {
             while (true) {
                 Request request = submittedRequests.take();
-                long traceMask = ZooTrace.CLIENT_REQUEST_TRACE_MASK;
-                if (request.type == OpCode.ping) {
-                    traceMask = ZooTrace.CLIENT_PING_TRACE_MASK;
-                }
-                if (LOG.isTraceEnabled()) {
-                    ZooTrace.logRequest(LOG, traceMask, 'P', request, "");
-                }
+
                 if (Request.requestOfDeath == request) {
                     break;
                 }

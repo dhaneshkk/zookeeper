@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.Request;
-import org.apache.zookeeper.server.ZooTrace;
 
 /**
  * This RequestProcessor forwards any requests that modify the state of the
@@ -64,10 +63,6 @@ public class ObserverRequestProcessor extends Thread implements
         try {
             while (!finished) {
                 Request request = queuedRequests.take();
-                if (LOG.isTraceEnabled()) {
-                    ZooTrace.logRequest(LOG, ZooTrace.CLIENT_REQUEST_TRACE_MASK,
-                            'F', request, "");
-                }
                 if (request == Request.requestOfDeath) {
                     break;
                 }
