@@ -54,6 +54,7 @@ import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
+import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.DeleteTxn;
 import org.apache.zookeeper.txn.ErrorTxn;
@@ -800,31 +801,16 @@ public class DataTree {
 
                     boolean post_failed = false;
                     for (Txn subtxn : txns) {
-                        ByteBuffer bb = ByteBuffer.wrap(subtxn.getData());
-                        Record record = null;
-                        switch (subtxn.getType()) {
-                            case OpCode.create:
-                                record = new CreateTxn();
-                                break;
-                            case OpCode.delete:
-                                record = new DeleteTxn();
-                                break;
-                            case OpCode.setData:
-                                record = new SetDataTxn();
-                                break;
-                            case OpCode.error:
-                                record = new ErrorTxn();
-                                post_failed = true;
-                                break;
-                            case OpCode.check:
-                                record = new CheckVersionTxn();
-                                break;
-                            default:
-                                throw new IOException("Invalid type of op: " + subtxn.getType());
+                        int type = subtxn.getType();
+                        if(type == OpCode.error) {
+                            post_failed = true;
+                        } else if(type != OpCode.create && type != OpCode.delete
+                                && type != OpCode.setData && type != OpCode.check) {
+                            throw new IOException("Invalid type of op: " + type);
                         }
-                        assert(record != null);
-
-                        ByteBufferInputStream.byteBuffer2Record(bb, record);
+                        Record record = SerializeUtils.getRecordForType(type);
+                        ByteBufferInputStream.byteBuffer2Record(
+                                ByteBuffer.wrap(subtxn.getData()), record);
 
                         if (failed && subtxn.getType() != OpCode.error){
                             int ec = post_failed ? Code.RUNTIMEINCONSISTENCY.intValue()
@@ -834,13 +820,11 @@ public class DataTree {
                             record = new ErrorTxn(ec);
                         }
 
-                        if (failed) {
-                            assert(subtxn.getType() == OpCode.error) ;
-                        }
+                        TxnHeader subHdr = new TxnHeader(
+                                header.getClientId(), header.getCxid(),
+                                header.getZxid(), header.getTime(),
+                                subtxn.getType());
 
-                        TxnHeader subHdr = new TxnHeader(header.getClientId(), header.getCxid(),
-                                                         header.getZxid(), header.getTime(),
-                                                         subtxn.getType());
                         ProcessTxnResult subRc = processTxn(subHdr, record);
                         rc.multiResult.add(subRc);
                         if (subRc.err != 0 && rc.err == 0) {

@@ -20,6 +20,8 @@ package org.apache.zookeeper.test;
 import org.apache.log4j.Logger;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.ZooDefs.Ids;
+import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.SyncRequestProcessor;
 import org.apache.zookeeper.server.ZooKeeperServer;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import static org.apache.zookeeper.test.ClientBase.CONNECTION_TIMEOUT;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -221,6 +224,24 @@ public class MultiTransactionTest extends ZKTestCase implements Watcher {
                 }
             }
         }
+    }
+
+    // This tests resembles the CPP test Zookeeper_multi::testCheck
+    @Test
+    public void testAllResultsErrorCodeOK()
+            throws KeeperException, InterruptedException {
+        String parent = "/multi0";
+        String child = parent + "/a";
+        zk.create(parent, new byte[0], Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+        Transaction transaction = zk.transaction();
+        transaction.check(parent, 0);
+        transaction.create(child, new byte[0], Ids.OPEN_ACL_UNSAFE,
+                CreateMode.PERSISTENT);
+        List<OpResult> results = transaction.commit();
+        assertTrue(zk.exists(child, false) instanceof Stat);
+        assertEquals(OpCode.check, results.get(0).getType());
+        assertEquals(OpCode.create, results.get(1).getType());
+        assertEquals(child, ((OpResult.CreateResult)results.get(1)).getPath());
     }
 
     @Test
