@@ -18,13 +18,9 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
-import org.apache.jute.Record;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
 
@@ -35,7 +31,7 @@ import org.apache.zookeeper.data.StatPersisted;
  * array of ACLs, a stat object, and a set of its children's paths.
  *
  */
-public class DataNode implements Record {
+public class DataNode {
     /** the data for this datanode */
     byte data[];
 
@@ -155,22 +151,15 @@ public class DataNode implements Record {
         return to;
     }
 
-    synchronized public void deserialize(InputArchive archive, String tag)
-            throws IOException {
-        archive.startRecord("node");
-        data = archive.readBuffer("data");
-        acl = archive.readLong("acl");
-        stat = new StatPersisted();
-        stat.deserialize(archive, "statpersisted");
-        archive.endRecord("node");
+    public byte[] getData() {
+        return data;
     }
 
-    synchronized public void serialize(OutputArchive archive, String tag)
-            throws IOException {
-        archive.startRecord(this, "node");
-        archive.writeBuffer(data, "data");
-        archive.writeLong(acl, "acl");
-        stat.serialize(archive, "statpersisted");
-        archive.endRecord(this, "node");
+    public Long getAcl() {
+        return acl;
+    }
+
+    public StatPersisted getStatPersisted() {
+        return stat;
     }
 }

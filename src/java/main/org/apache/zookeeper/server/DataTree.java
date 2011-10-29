@@ -47,6 +47,7 @@ import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
+import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.TxnHeader;
 
@@ -551,7 +552,7 @@ public class DataTree {
         String children[] = null;
         synchronized (node) {
             oa.writeString(pathString, "path");
-            oa.writeRecord(node, "node");
+            SerializeUtils.serializeNode(oa, node);
             Set<String> childs = node.getChildren();
             if (childs != null) {
                 children = childs.toArray(new String[childs.size()]);
@@ -624,8 +625,7 @@ public class DataTree {
         nodes.clear();
         String path = ia.readString("path");
         while (!"/".equals(path)) {
-            DataNode node = new DataNode();
-            ia.readRecord(node, "node");
+            DataNode node = SerializeUtils.deserializeNode(ia);
             nodes.put(path, node);
             int lastSlash = path.lastIndexOf('/');
             if (lastSlash == -1) {

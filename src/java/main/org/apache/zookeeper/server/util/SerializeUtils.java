@@ -31,6 +31,8 @@ import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.data.StatPersisted;
+import org.apache.zookeeper.server.DataNode;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.txn.CheckVersionTxn;
 import org.apache.zookeeper.txn.CreateSessionTxn;
@@ -122,4 +124,26 @@ public class SerializeUtils {
         dt.serialize(oa, "tree");
     }
 
+
+    public static DataNode deserializeNode(InputArchive archive)
+            throws IOException {
+        archive.startRecord("node");
+        byte [] data = archive.readBuffer("data");
+        Long acl = archive.readLong("acl");
+        StatPersisted stat = new StatPersisted();
+        stat.deserialize(archive, "statpersisted");
+        archive.endRecord("node");
+        return new DataNode(data, acl, stat);
+    }
+
+    public static void serializeNode(OutputArchive archive, DataNode node)
+            throws IOException {
+        // archive.startRecord(node, "node");
+        synchronized(node) {
+            archive.writeBuffer(node.getData(), "data");
+            archive.writeLong(node.getAcl(), "acl");
+            node.getStatPersisted().serialize(archive, "statpersisted");
+        }
+        // archive.endRecord(node, "node");
+    }
 }
