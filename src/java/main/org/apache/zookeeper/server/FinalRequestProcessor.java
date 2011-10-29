@@ -62,7 +62,7 @@ public class FinalRequestProcessor implements RequestProcessor {
         }
 
         Transaction transaction = null;
-        ProcessTxnResult rc = new ProcessTxnResult(0);
+        ProcessTxnResult rc = null;
         synchronized (zks.outstandingChanges) {
             while (!zks.outstandingChanges.isEmpty()
                     && zks.outstandingChanges.get(0).zxid <= request.getMeta().getZxid()) {
@@ -79,12 +79,14 @@ public class FinalRequestProcessor implements RequestProcessor {
                 DataTree tree = zks.getZKDatabase().getDataTree();
                 try {
                     rc = transaction.process(tree);
+                    rc.trigger.triggerWatches(tree);
                 } catch (KeeperException e) {
+                    rc = new ProcessTxnResult(e.code().intValue(),
+                                transaction instanceof PathTransaction
+                                    ? ((PathTransaction)transaction).getPath().toString()
+                                    : null
+                            );
                     LOG.warn("Failed: ", e);
-                    if(transaction != null && transaction instanceof PathTransaction) {
-                        rc.path = ((PathTransaction)transaction).getPath().toString();
-                    }
-                    rc.err = e.code().intValue();
                 }
                 /*
                  * A snapshot might be in progress while we are modifying the data

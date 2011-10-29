@@ -83,6 +83,10 @@ public abstract class Transaction {
 
     public abstract ProcessTxnResult process(DataTree tree) throws KeeperException;
 
+    ////////////////////////////////////
+    // Interfaces
+    ////////////////////////////////////
+
     public abstract static class PathTransaction extends Transaction {
         protected final Path path;
 
@@ -94,7 +98,14 @@ public abstract class Transaction {
         public Path getPath() { return path; }
     }
 
-    public static final class Create extends PathTransaction {
+    public interface TriggerWatches {
+        public void triggerWatches(DataTree tree);
+    }
+    ///////////////////////////////////
+    // Transaction sub classes
+    ///////////////////////////////////
+
+    public static final class Create extends PathTransaction implements TriggerWatches {
         private final byte[] data;
         private final AccessControlList acl;
         private final boolean ephemeral;
@@ -171,14 +182,17 @@ public abstract class Transaction {
                 tree.updateCount(lastPrefix, 1);
                 tree.updateBytes(lastPrefix, data == null ? 0 : data.length);
             }
+            return new ProcessTxnResult(OpCode.create, path.toString(), null, this);
+        }
+
+        @Override
+        public void triggerWatches(DataTree tree) {
             tree.dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
-            tree.childWatches.triggerWatch(path.getParent(),
-                    Event.EventType.NodeChildrenChanged);
-            return new ProcessTxnResult(OpCode.create, path.toString(), null);
+            tree.childWatches.triggerWatch(path.getParent(), Event.EventType.NodeChildrenChanged);
         }
     }
 
-    public static final class Delete extends PathTransaction {
+    public static final class Delete extends PathTransaction implements TriggerWatches {
 
         public Delete(TxnHeader header, DeleteTxn txn) {
             super(header, txn.getPath());
@@ -230,16 +244,18 @@ public abstract class Transaction {
                 tree.updateBytes(lastPrefix, bytes);
             }
 
-            Set<Watcher> processed = tree.dataWatches.triggerWatch(path,
-                    EventType.NodeDeleted);
+            return new ProcessTxnResult(OpCode.delete, path.toString(), null, this);
+        }
+
+        @Override
+        public void triggerWatches(DataTree tree) {
+            Set<Watcher> processed = tree.dataWatches.triggerWatch(path, EventType.NodeDeleted);
             tree.childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
-            tree.childWatches.triggerWatch(path.getParent(),
-                    EventType.NodeChildrenChanged);
-            return new ProcessTxnResult(OpCode.delete, path.toString(), null);
+            tree.childWatches.triggerWatch(path.getParent(), EventType.NodeChildrenChanged);
         }
     }
 
-    public static final class SetData extends PathTransaction {
+    public static final class SetData extends PathTransaction implements TriggerWatches {
         private final int version;
         private final byte[] data;
 
@@ -273,8 +289,13 @@ public abstract class Transaction {
               tree.updateBytes(lastPrefix, (data == null ? 0 : data.length)
                   - (lastdata == null ? 0 : lastdata.length));
             }
+
+            return new ProcessTxnResult(OpCode.setData, path.toString(), s, this);
+        }
+
+        @Override
+        public void triggerWatches(DataTree tree) {
             tree.dataWatches.triggerWatch(path, EventType.NodeDataChanged);
-            return new ProcessTxnResult(OpCode.setData, path.toString(), s);
         }
     }
 
@@ -349,7 +370,7 @@ public abstract class Transaction {
         @Override
         public Record getResponse(ProcessTxnResult rc) {
             try {
-                return new MultiResponse(rc.multiResult) ;
+                return new MultiResponse(((MultiTxnResult)rc).multiResult) ;
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -358,6 +379,7 @@ public abstract class Transaction {
         @Override
         public ProcessTxnResult process(DataTree tree) {
             List<ProcessTxnResult> multiResult = new ArrayList<ProcessTxnResult>();
+            List<TriggerWatches> trigger = new ArrayList<TriggerWatches>(transactions.size());
 
             boolean postFailed = false;
             for (Transaction subtxn : transactions) {
@@ -369,10 +391,11 @@ public abstract class Transaction {
                 ProcessTxnResult subRc;
                 if (error != Code.OK && type != OpCode.error){
                     subRc = new ProcessTxnResult(postFailed ? Code.RUNTIMEINCONSISTENCY.intValue()
-                                                            : Code.OK.intValue());
+                                                            : Code.OK.intValue(), null);
                 } else {
                     try {
                         subRc = subtxn.process(tree);
+                        trigger.add(subRc.trigger);
                     } catch (KeeperException e) {
                         LOG.debug("SubTxn of type {} failed: {}", type.longString, e);
                         subRc = null;
@@ -381,10 +404,16 @@ public abstract class Transaction {
 
                 multiResult.add(subRc);
             }
-            ProcessTxnResult result = new ProcessTxnResult(0);
-            result.multiResult = multiResult;
-            result.type = OpCode.multi;
-            return result;
+            return new MultiTxnResult(multiResult, trigger);
+        }
+
+        private static class MultiTxnResult extends ProcessTxnResult {
+            public List<ProcessTxnResult> multiResult;
+
+            public MultiTxnResult(List<ProcessTxnResult> multiResult, List<TriggerWatches> triggerList) {
+                super(OpCode.multi, 0, null, null, new MultiTriggerWatches(triggerList));
+                this.multiResult = multiResult;
+            }
         }
     }
 
@@ -410,8 +439,36 @@ public abstract class Transaction {
 
         @Override
         public ProcessTxnResult process(DataTree tree) {
-            tree.killSession(clientId, zxid);
-            return new ProcessTxnResult(OpCode.closeSession, null, null);
+            // the list is already removed from the ephemerals
+            // so we do not have to worry about synchronizing on
+            // the list. This is only called from FinalRequestProcessor
+            // so there is no need for synchronization. The list is not
+            // changed here. Only create and delete change the list which
+            // are again called from FinalRequestProcessor in sequence.
+            HashSet<String> list = tree.ephemerals.remove(clientId);
+            List<TriggerWatches> trigger = new ArrayList<TriggerWatches>(list != null ? list.size() : 0);
+            TxnHeader header = new TxnHeader();
+            header.setZxid(zxid);
+            if (list != null) {
+                for (String path : list) {
+                    try {
+                        DeleteTxn delTxn = new DeleteTxn(path);
+                        Transaction.Delete transaction = new Transaction.Delete(header, delTxn);
+                        ProcessTxnResult rc = transaction.process(tree);
+                        trigger.add(rc.trigger);
+                        if (LOG.isDebugEnabled()) {
+                            LOG.debug("Deleting ephemeral node " + path
+                                            + " for session 0x"
+                                            + Long.toHexString(clientId));
+                        }
+                    } catch (NoNodeException e) {
+                        LOG.warn("Ignoring NoNodeException for path " + path
+                                + " while removing ephemeral for dead session 0x"
+                                + Long.toHexString(clientId));
+                    }
+                }
+            }
+            return new ProcessTxnResult(OpCode.closeSession, null, null, new MultiTriggerWatches(trigger));
         }
     }
 
@@ -427,31 +484,66 @@ public abstract class Transaction {
 
         @Override
         public ProcessTxnResult process(DataTree tree) {
-            return new ProcessTxnResult(errorCode.intValue());
+            return new ProcessTxnResult(errorCode.intValue(), null);
         }
     }
 
-    static public final class ProcessTxnResult {
-        public int err = 0;
+    static public class ProcessTxnResult {
+        private static final TriggerWatches NO_OP_TRIGGER = new TriggerWatches(){
+            @Override public void triggerWatches(DataTree t){}
+        };
 
-        public OpCode type;
+        public final int err;
 
-        public String path;
+        public final OpCode type;
 
-        public Stat stat;
+        public final String path;
 
-        public List<ProcessTxnResult> multiResult;
+        public final Stat stat;
 
-        public ProcessTxnResult(int err) {
+        public final TriggerWatches trigger;
+
+        public ProcessTxnResult(int err, String path) {
             this.type = OpCode.error;
+            this.path = path;
+            this.stat = null;
+            this.trigger = NO_OP_TRIGGER;
             this.err = err;
         }
 
-        public ProcessTxnResult(OpCode type, String path, Stat stat) {
-            super();
+        private ProcessTxnResult(OpCode type, String path, Stat stat) {
+            this(type, path, stat, NO_OP_TRIGGER);
+        }
+
+        private ProcessTxnResult(OpCode type, String path, Stat stat, TriggerWatches trigger) {
+            this.err = 0;
             this.type = type;
             this.path = path;
             this.stat = stat;
+            this.trigger = trigger;
+        }
+
+        private ProcessTxnResult(OpCode type, int err, String path, Stat stat, TriggerWatches trigger) {
+            this.err = err;
+            this.type = type;
+            this.path = path;
+            this.stat = stat;
+            this.trigger = trigger;
+        }
+    }
+
+    static private class MultiTriggerWatches implements TriggerWatches {
+        private final List<TriggerWatches> triggerList;
+
+        private MultiTriggerWatches(List<TriggerWatches> triggerList) {
+            this.triggerList = triggerList;
+        }
+
+        @Override
+        public void triggerWatches(DataTree tree) {
+            for(TriggerWatches trigger : triggerList) {
+                trigger.triggerWatches(tree);
+            }
         }
     }
 }

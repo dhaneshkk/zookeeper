@@ -41,6 +41,7 @@ import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.server.Request.Meta;
+import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog.PlayBackListener;
 import org.apache.zookeeper.server.quorum.Leader;
@@ -264,15 +265,6 @@ public class ZKDatabase {
     }
 
     /**
-     * kill a given session in the datatree
-     * @param sessionId the session id to be killed
-     * @param zxid the zxid of kill session transaction
-     */
-    public void killSession(long sessionId, long zxid) {
-        dataTree.killSession(sessionId, zxid);
-    }
-
-    /**
      * write a text dump of all the ephemerals in the datatree
      * @param pwriter the output to write to
      */
@@ -422,7 +414,9 @@ public class ZKDatabase {
 
     public void processTxn(TxnHeader hdr, Record txn) {
         try {
-            Transaction.fromTxn(hdr, txn).process(dataTree);
+            Transaction transaction = Transaction.fromTxn(hdr, txn);
+            ProcessTxnResult rc = transaction.process(dataTree);
+            rc.trigger.triggerWatches(dataTree);
         } catch (KeeperException e) {
             LOG.warn("Failed: ", e);
         }

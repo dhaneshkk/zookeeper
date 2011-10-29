@@ -57,10 +57,13 @@ import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.ServerCnxn.CloseRequestException;
 import org.apache.zookeeper.server.SessionTracker.Session;
 import org.apache.zookeeper.server.SessionTracker.SessionExpirer;
+import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 import org.apache.zookeeper.server.auth.AccessControl;
 import org.apache.zookeeper.server.auth.AuthenticationProvider;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.ReadOnlyZooKeeperServer;
+import org.apache.zookeeper.txn.TxnHeader;
+
 import javax.security.sasl.SaslException;
 
 /**
@@ -236,9 +239,18 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             }
         }
 
+        DataTree tree = zkDb.getDataTree();
         for (long session : deadSessions) {
+            TxnHeader txnHeader = new TxnHeader();
             // XXX: Is lastProcessedZxid really the best thing to use?
-            killSession(session, zkDb.getDataTreeLastProcessedZxid());
+            txnHeader.setZxid(zkDb.getDataTreeLastProcessedZxid());
+            txnHeader.setClientId(session);
+            Transaction.CloseSession transaction = new Transaction.CloseSession(txnHeader);
+            ProcessTxnResult rc = transaction.process(tree);
+            rc.trigger.triggerWatches(tree);
+            if (sessionTracker != null) {
+                sessionTracker.removeSession(session);
+            }
         }
 
         // Make a clean snapshot
@@ -286,13 +298,6 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         // we do not want to wait for a session close. send it as soon as we
         // detect it!
         close(sessionId);
-    }
-
-    protected void killSession(long sessionId, long zxid) {
-        zkDb.killSession(sessionId, zxid);
-        if (sessionTracker != null) {
-            sessionTracker.removeSession(sessionId);
-        }
     }
 
     @Override

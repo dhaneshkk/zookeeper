@@ -39,7 +39,6 @@ import org.apache.zookeeper.Quotas;
 import org.apache.zookeeper.StatsTrack;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.common.AccessControlList;
@@ -49,7 +48,6 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.txn.CreateTxn;
-import org.apache.zookeeper.txn.DeleteTxn;
 import org.apache.zookeeper.txn.TxnHeader;
 
 /**
@@ -396,7 +394,9 @@ public class DataTree {
         hdr.setTime(time);
 
         CreateTxn txn = new CreateTxn(path, data, acl, true, parentCVersion);
-        (new Transaction.Create(hdr, txn)).process(this);
+        Transaction.Create createTransaction = new Transaction.Create(hdr, txn);
+        createTransaction.process(this);
+        createTransaction.triggerWatches(this);
     }
 
     /**
@@ -416,36 +416,6 @@ public class DataTree {
         }
         else {
             return lastPrefix;
-        }
-    }
-
-    void killSession(long session, long zxid) {
-        // the list is already removed from the ephemerals
-        // so we do not have to worry about synchronizing on
-        // the list. This is only called from FinalRequestProcessor
-        // so there is no need for synchronization. The list is not
-        // changed here. Only create and delete change the list which
-        // are again called from FinalRequestProcessor in sequence.
-        HashSet<String> list = ephemerals.remove(session);
-        TxnHeader header = new TxnHeader();
-        header.setZxid(zxid);
-        if (list != null) {
-            for (String path : list) {
-                try {
-                    DeleteTxn delTxn = new DeleteTxn(path);
-                    Transaction.Delete transaction = new Transaction.Delete(header, delTxn);
-                    transaction.process(this);
-                    if (LOG.isDebugEnabled()) {
-                        LOG.debug("Deleting ephemeral node " + path
-                                        + " for session 0x"
-                                        + Long.toHexString(session));
-                    }
-                } catch (NoNodeException e) {
-                    LOG.warn("Ignoring NoNodeException for path " + path
-                            + " while removing ephemeral for dead session 0x"
-                            + Long.toHexString(session));
-                }
-            }
         }
     }
 
