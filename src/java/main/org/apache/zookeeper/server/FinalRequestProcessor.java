@@ -150,9 +150,8 @@ public class FinalRequestProcessor implements RequestProcessor {
                         (ErrorTxn) request.getTxn()).getErr()));
             }
 
-            KeeperException ke = request.getException();
-            if (ke != null && request.type != OpCode.multi) {
-                throw ke;
+            if (request.getException() != null) {
+                throw request.getException();
             }
 
             if (LOG.isDebugEnabled()) {

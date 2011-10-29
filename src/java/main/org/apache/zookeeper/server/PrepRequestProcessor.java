@@ -528,7 +528,6 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                                     + " Error Path:" + e.getPath()
                                     + " Error:" + e.getMessage());
                             LOG.error(">>>> ABORTING remaing MultiOp ops");
-                            request.setException(e);
 
                             /* Rollback change records from failed multi-op */
                             rollbackPendingChanges(zxid, pendingChanges);
@@ -548,7 +547,6 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
 
                 request.setHdr(new TxnHeader(request.sessionId, request.cxid, zxid, zks.getTime(), request.type));
                 request.setTxn(new MultiTxn(txns));
-
                 break;
 
             //create/close session don't require request record
