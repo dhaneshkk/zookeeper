@@ -10,7 +10,6 @@ import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.AccessControlList.Permission;
-import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.ExistsRequest;
 import org.apache.zookeeper.proto.ExistsResponse;
 import org.apache.zookeeper.proto.GetACLRequest;
@@ -70,8 +69,6 @@ public abstract class ReadRequest {
 
         @Override
         Record getResponse(DataNode node) {
-            Stat stat = new Stat();
-            node.copyStat(stat);
             ArrayList<String> children;
             Set<String> childs = node.getChildren();
             if (childs == null) {
@@ -79,7 +76,7 @@ public abstract class ReadRequest {
             } else {
                 children = new ArrayList<String>(childs);
             }
-            return new GetChildren2Response(children, stat);
+            return new GetChildren2Response(children, node.getStat());
         }
 
         @Override
@@ -119,9 +116,7 @@ public abstract class ReadRequest {
 
         @Override
         Record getResponse(DataNode node) {
-            Stat stat = new Stat();
-            node.copyStat(stat);
-            return new GetDataResponse(node.data, stat);
+            return new GetDataResponse(node.data, node.getStat());
         }
 
         @Override
@@ -143,9 +138,7 @@ public abstract class ReadRequest {
             DataTree tree = zks.getZKDatabase().getDataTree();
             DataNode node = tree.getNode(path);
             if(node == null) throw new KeeperException.NoNodeException(path);
-            Stat stat = new Stat();
-            node.copyStat(stat);
-            return new GetACLResponse(tree.convertLong(node.acl).toJuteACL(), stat);
+            return new GetACLResponse(tree.convertLong(node.acl).toJuteACL(), node.getStat());
         }
     }
 
@@ -166,9 +159,7 @@ public abstract class ReadRequest {
                 throw new KeeperException.NoNodeException();
             }
 
-            Stat stat = new Stat();
-            node.copyStat(stat);
-            return new ExistsResponse(stat);
+            return new ExistsResponse(node.getStat());
         }
 
         @Override void setWatcher(DataTree tree, Watcher watcher) {

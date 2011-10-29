@@ -269,7 +269,7 @@ public abstract class Transaction {
 
         @Override
         public ProcessTxnResult process(DataTree tree) throws NoNodeException {
-            Stat s = new Stat();
+            Stat s;
             DataNode n = tree.nodes.get(path.toString());
             if (n == null) {
                 throw new KeeperException.NoNodeException();
@@ -281,7 +281,7 @@ public abstract class Transaction {
                 n.stat.setMtime(time);
                 n.stat.setMzxid(zxid);
                 n.stat.setVersion(version);
-                n.copyStat(s);
+                s = n.getStat();
             }
             // now update if the path is in a quota subtree.
             String lastPrefix = tree.getMaxPrefixWithQuota(path);
@@ -313,7 +313,6 @@ public abstract class Transaction {
 
         @Override
         public ProcessTxnResult process(DataTree tree) throws NoNodeException {
-            Stat stat = new Stat();
             DataNode n = tree.nodes.get(path.toString());
             if (n == null) {
                 throw new KeeperException.NoNodeException();
@@ -321,8 +320,7 @@ public abstract class Transaction {
             synchronized (n) {
                 n.stat.setAversion(version);
                 n.acl = tree.convertAcls(acl);
-                n.copyStat(stat);
-                return new ProcessTxnResult(OpCode.setACL, path.toString(), stat);
+                return new ProcessTxnResult(OpCode.setACL, path.toString(), n.getStat());
             }
         }
     }
