@@ -82,7 +82,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 } catch (KeeperException e) {
                     LOG.warn("Failed: ", e);
                     if(transaction != null && transaction instanceof PathTransaction) {
-                        rc.path = ((PathTransaction)transaction).getPath();
+                        rc.path = ((PathTransaction)transaction).getPath().toString();
                     }
                     rc.err = e.code().intValue();
                 }

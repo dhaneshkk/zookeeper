@@ -43,6 +43,7 @@ import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.common.AccessControlList;
+import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
@@ -404,11 +405,11 @@ public class DataTree {
      * @param path The ZK path to check for quota
      * @return Max quota prefix, or null if none
      */
-    public String getMaxPrefixWithQuota(String path) {
+    public String getMaxPrefixWithQuota(Path path) {
         // do nothing for the root.
         // we are not keeping a quota on the zookeeper
         // root node for now.
-        String lastPrefix = pTrie.findMaxPrefix(path);
+        String lastPrefix = pTrie.findMaxPrefix(path.toString());
 
         if (rootZookeeper.equals(lastPrefix) || "".equals(lastPrefix)) {
             return null;

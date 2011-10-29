@@ -27,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.Transaction;
@@ -195,11 +196,10 @@ public class FileTxnSnapLog {
              * restore.
              */
             if (OpCode.create.is(hdr.getType())) {
-                String path = ((PathTransaction)transaction).getPath();
+                Path path = ((PathTransaction)transaction).getPath();
                 LOG.debug("Adjusting parent cversion for Txn: {} path: {}",
                         hdr.getType(), path);
-                int lastSlash = path.lastIndexOf('/');
-                String parentName = path.substring(0, lastSlash);
+                String parentName = path.getParent().toString();
                 CreateTxn cTxn = (CreateTxn)txn;
                 try {
                     dt.setCversionPzxid(parentName, cTxn.getParentCVersion(),

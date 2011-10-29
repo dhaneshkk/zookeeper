@@ -19,6 +19,7 @@ import org.apache.zookeeper.Watcher.Event;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
+import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.proto.CreateResponse;
@@ -83,14 +84,14 @@ public abstract class Transaction {
     public abstract ProcessTxnResult process(DataTree tree) throws KeeperException;
 
     public abstract static class PathTransaction extends Transaction {
-        protected final String path;
+        protected final Path path;
 
         protected PathTransaction(TxnHeader header, String path) {
             super(header);
-            this.path = path;
+            this.path = new Path(path);
         }
 
-        public String getPath() { return path; }
+        public Path getPath() { return path; }
     }
 
     public static final class Create extends PathTransaction {
@@ -107,14 +108,13 @@ public abstract class Transaction {
             this.parentCVersion = txn.getParentCVersion();
         }
 
-        @Override public Record getResponse(ProcessTxnResult rc) { return new CreateResponse(path); }
+        @Override public Record getResponse(ProcessTxnResult rc) { return new CreateResponse(path.toString()); }
 
         @Override
         public ProcessTxnResult process(DataTree tree) throws NodeExistsException, NoNodeException {
             long ephemeralOwner = ephemeral ? clientId : 0;
-            int lastSlash = path.lastIndexOf('/');
-            String parentName = path.substring(0, lastSlash);
-            String childName = path.substring(lastSlash + 1);
+            String parentName = path.getParent().toString();
+            String childName = path.basename().toString();
             StatPersisted stat = new StatPersisted();
             stat.setCtime(time);
             stat.setMtime(time);
@@ -139,7 +139,7 @@ public abstract class Transaction {
                 Long longval = tree.convertAcls(acl);
                 DataNode child = new DataNode(data, longval, stat);
                 parent.addChild(childName);
-                tree.nodes.put(path, child);
+                tree.nodes.put(path.toString(), child);
                 if (ephemeralOwner != 0) {
                     HashSet<String> list = tree.ephemerals.get(ephemeralOwner);
                     if (list == null) {
@@ -147,7 +147,7 @@ public abstract class Transaction {
                         tree.ephemerals.put(ephemeralOwner, list);
                     }
                     synchronized (list) {
-                        list.add(path);
+                        list.add(path.toString());
                     }
                 }
             }
@@ -172,9 +172,9 @@ public abstract class Transaction {
                 tree.updateBytes(lastPrefix, data == null ? 0 : data.length);
             }
             tree.dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
-            tree.childWatches.triggerWatch(parentName.equals("") ? "/" : parentName,
+            tree.childWatches.triggerWatch(path.getParent(),
                     Event.EventType.NodeChildrenChanged);
-            return new ProcessTxnResult(OpCode.create, path, null);
+            return new ProcessTxnResult(OpCode.create, path.toString(), null);
         }
     }
 
@@ -188,14 +188,13 @@ public abstract class Transaction {
 
         @Override
         public ProcessTxnResult process(DataTree tree) throws NoNodeException {
-            int lastSlash = path.lastIndexOf('/');
-            String parentName = path.substring(0, lastSlash);
-            String childName = path.substring(lastSlash + 1);
-            DataNode node = tree.nodes.get(path);
+            String parentName = path.getParent().toString();
+            String childName = path.basename().toString();
+            DataNode node = tree.nodes.get(path.toString());
             if (node == null) {
                 throw new KeeperException.NoNodeException();
             }
-            tree.nodes.remove(path);
+            tree.nodes.remove(path.toString());
             DataNode parent = tree.nodes.get(parentName);
             if (parent == null) {
                 throw new KeeperException.NoNodeException();
@@ -208,7 +207,7 @@ public abstract class Transaction {
                     HashSet<String> nodes = tree.ephemerals.get(eowner);
                     if (nodes != null) {
                         synchronized (nodes) {
-                            nodes.remove(path);
+                            nodes.remove(path.toString());
                         }
                     }
                 }
@@ -234,9 +233,9 @@ public abstract class Transaction {
             Set<Watcher> processed = tree.dataWatches.triggerWatch(path,
                     EventType.NodeDeleted);
             tree.childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
-            tree.childWatches.triggerWatch("".equals(parentName) ? "/" : parentName,
+            tree.childWatches.triggerWatch(path.getParent(),
                     EventType.NodeChildrenChanged);
-            return new ProcessTxnResult(OpCode.delete, path, null);
+            return new ProcessTxnResult(OpCode.delete, path.toString(), null);
         }
     }
 
@@ -255,7 +254,7 @@ public abstract class Transaction {
         @Override
         public ProcessTxnResult process(DataTree tree) throws NoNodeException {
             Stat s = new Stat();
-            DataNode n = tree.nodes.get(path);
+            DataNode n = tree.nodes.get(path.toString());
             if (n == null) {
                 throw new KeeperException.NoNodeException();
             }
@@ -275,7 +274,7 @@ public abstract class Transaction {
                   - (lastdata == null ? 0 : lastdata.length));
             }
             tree.dataWatches.triggerWatch(path, EventType.NodeDataChanged);
-            return new ProcessTxnResult(OpCode.setData, path, s);
+            return new ProcessTxnResult(OpCode.setData, path.toString(), s);
         }
     }
 
@@ -294,7 +293,7 @@ public abstract class Transaction {
         @Override
         public ProcessTxnResult process(DataTree tree) throws NoNodeException {
             Stat stat = new Stat();
-            DataNode n = tree.nodes.get(path);
+            DataNode n = tree.nodes.get(path.toString());
             if (n == null) {
                 throw new KeeperException.NoNodeException();
             }
@@ -302,7 +301,7 @@ public abstract class Transaction {
                 n.stat.setAversion(version);
                 n.acl = tree.convertAcls(acl);
                 n.copyStat(stat);
-                return new ProcessTxnResult(OpCode.setACL, path, stat);
+                return new ProcessTxnResult(OpCode.setACL, path.toString(), stat);
             }
         }
     }
@@ -321,7 +320,7 @@ public abstract class Transaction {
 
         @Override
         public ProcessTxnResult process(DataTree tree) {
-            return new ProcessTxnResult(OpCode.check, path, null);
+            return new ProcessTxnResult(OpCode.check, path.toString(), null);
         }
     }
 

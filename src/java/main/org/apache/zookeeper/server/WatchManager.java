@@ -28,6 +28,7 @@ import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
+import org.apache.zookeeper.common.Path;
 
 /**
  * This class manages watches. It allows watches to be associated with a string
@@ -84,23 +85,23 @@ public class WatchManager {
         }
     }
 
-    Set<Watcher> triggerWatch(String path, EventType type) {
+    Set<Watcher> triggerWatch(Path path, EventType type) {
         return triggerWatch(path, type, null);
     }
 
-    Set<Watcher> triggerWatch(String path, EventType type, Set<Watcher> supress) {
+    Set<Watcher> triggerWatch(Path path, EventType type, Set<Watcher> supress) {
         WatchedEvent e = new WatchedEvent(type,
-                KeeperState.SyncConnected, path);
+                KeeperState.SyncConnected, path.toString());
         HashSet<Watcher> watchers;
         synchronized (this) {
-            watchers = watchTable.remove(path);
+            watchers = watchTable.remove(path.toString());
             if (watchers == null || watchers.isEmpty()) {
                 return null;
             }
             for (Watcher w : watchers) {
                 HashSet<String> paths = watch2Paths.get(w);
                 if (paths != null) {
-                    paths.remove(path);
+                    paths.remove(path.toString());
                 }
             }
         }

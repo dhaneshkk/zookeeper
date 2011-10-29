@@ -27,6 +27,7 @@ import org.apache.zookeeper.StatsTrack;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.ZooKeeperMain;
 import org.apache.zookeeper.ZooDefs.Ids;
+import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.junit.Assert;
@@ -74,6 +75,6 @@ public class ZooKeeperQuotaTest extends ClientBase {
         startServer();
         ZooKeeperServer server = getServer(serverFactory);
         Assert.assertNotNull("Quota is still set",
-            server.getZKDatabase().getDataTree().getMaxPrefixWithQuota(path) != null);
+            server.getZKDatabase().getDataTree().getMaxPrefixWithQuota(new Path(path)) != null);
     }
 }
