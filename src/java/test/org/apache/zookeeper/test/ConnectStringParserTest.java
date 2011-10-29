@@ -63,6 +63,6 @@ public class ConnectStringParserTest extends ZKTestCase{
     }
 
     private void assertChrootPath(String expected, ConnectStringParser parser){
-        Assert.assertEquals(expected, parser.getChrootPath());
+        Assert.assertEquals(expected, parser.getChrootPath().toString());
     }
 }

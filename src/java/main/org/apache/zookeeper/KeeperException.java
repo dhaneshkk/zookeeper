@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.zookeeper.common.Path;
+
 @SuppressWarnings("serial")
 public abstract class KeeperException extends Exception {
     /**
@@ -131,7 +133,7 @@ public abstract class KeeperException extends Exception {
                 return new SessionMovedException();
             case NOTREADONLY:
                 return new NotReadOnlyException();
-            	
+
             case OK:
             default:
                 throw new IllegalArgumentException("Invalid exception code");
@@ -313,7 +315,7 @@ public abstract class KeeperException extends Exception {
         OPERATIONTIMEOUT (OperationTimeout),
         /** Invalid arguments */
         BADARGUMENTS (BadArguments),
-        
+
         /** API errors.
          * This is never thrown by the server, it shouldn't be used other than
          * to indicate a range. Specifically error codes greater than this
@@ -345,7 +347,8 @@ public abstract class KeeperException extends Exception {
         /** Session moved to another server, so operation is ignored */
         SESSIONMOVED (-118),
         /** State-changing request is passed to read-only server */
-        NOTREADONLY (-119);
+        NOTREADONLY (-119),
+        INVALIDPATH (-120);
 
         private static final Map<Integer,Code> lookup
             = new HashMap<Integer,Code>();
@@ -440,6 +443,10 @@ public abstract class KeeperException extends Exception {
         this.path = path;
     }
 
+    KeeperException(Code code, Path path) {
+        this(code, path == null ? "null" : path.toString());
+    }
+
     /**
      * Read the error code for this exception
      * @return the error code for this exception
@@ -527,6 +534,9 @@ public abstract class KeeperException extends Exception {
         public BadVersionException(String path) {
             super(Code.BADVERSION, path);
         }
+        public BadVersionException(Path path) {
+            super(Code.BADVERSION, path);
+        }
     }
 
     /**
@@ -555,6 +565,9 @@ public abstract class KeeperException extends Exception {
             super(Code.INVALIDACL);
         }
         public InvalidACLException(String path) {
+            super(Code.INVALIDACL, path);
+        }
+        public InvalidACLException(Path path) {
             super(Code.INVALIDACL, path);
         }
     }
@@ -596,6 +609,9 @@ public abstract class KeeperException extends Exception {
         public NoChildrenForEphemeralsException(String path) {
             super(Code.NOCHILDRENFOREPHEMERALS, path);
         }
+        public NoChildrenForEphemeralsException(Path path) {
+            super(Code.NOCHILDRENFOREPHEMERALS, path);
+        }
     }
 
     /**
@@ -606,6 +622,9 @@ public abstract class KeeperException extends Exception {
             super(Code.NODEEXISTS);
         }
         public NodeExistsException(String path) {
+            super(Code.NODEEXISTS, path);
+        }
+        public NodeExistsException(Path path) {
             super(Code.NODEEXISTS, path);
         }
     }
@@ -620,6 +639,9 @@ public abstract class KeeperException extends Exception {
         public NoNodeException(String path) {
             super(Code.NONODE, path);
         }
+        public NoNodeException(Path path) {
+            super(Code.NONODE, path);
+        }
     }
 
     /**
@@ -630,6 +652,9 @@ public abstract class KeeperException extends Exception {
             super(Code.NOTEMPTY);
         }
         public NotEmptyException(String path) {
+            super(Code.NOTEMPTY, path);
+        }
+        public NotEmptyException(Path path) {
             super(Code.NOTEMPTY, path);
         }
     }
@@ -660,7 +685,7 @@ public abstract class KeeperException extends Exception {
             super(Code.SESSIONEXPIRED);
         }
     }
-    
+
     /**
      * @see Code#SESSIONMOVED
      */
@@ -696,4 +721,17 @@ public abstract class KeeperException extends Exception {
             super(Code.UNIMPLEMENTED);
         }
     }
+
+    /**
+     * @see Code#INVALIDPATH
+     */
+    public static class InvalidPathException extends KeeperException {
+        public InvalidPathException() {
+            super(Code.INVALIDPATH);
+        }
+        public InvalidPathException(String path) {
+            super(Code.INVALIDPATH, path);
+        }
+    }
+
 }

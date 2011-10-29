@@ -20,49 +20,66 @@ package org.apache.zookeeper.client;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.List;
 
-import org.apache.zookeeper.common.PathUtils;
+import org.apache.zookeeper.common.ValidPath;
 
 /**
  * A parser for ZooKeeper Client connect strings.
- * 
+ *
  * This class is not meant to be seen or used outside of ZooKeeper itself.
- * 
- * The chrootPath member should be replaced by a Path object in issue
- * ZOOKEEPER-849.
- * 
+ *
  * @see org.apache.zookeeper.ZooKeeper
  */
 public final class ConnectStringParser {
     private static final int DEFAULT_PORT = 2181;
 
-    private final String chrootPath;
+    private final ValidPath chrootPath;
 
-    private final ArrayList<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>();
+    private final List<InetSocketAddress> serverAddresses;
 
     /**
-     * 
+     *
      * @throws IllegalArgumentException
      *             for an invalid chroot path.
      */
     public ConnectStringParser(String connectString) {
-        // parse out chroot, if any
+        this.chrootPath = parseChroot(connectString);
+        this.serverAddresses = parseServerAddresses(connectString);
+    }
+
+    public ValidPath getChrootPath() {
+        return chrootPath;
+    }
+
+    public List<InetSocketAddress> getServerAddresses() {
+        return serverAddresses;
+    }
+
+    private ValidPath parseChroot(final String connectString) {
         int off = connectString.indexOf('/');
-        if (off >= 0) {
-            String chrootPath = connectString.substring(off);
-            // ignore "/" chroot spec, same as null
-            if (chrootPath.length() == 1) {
-                this.chrootPath = null;
-            } else {
-                PathUtils.validatePath(chrootPath);
-                this.chrootPath = chrootPath;
-            }
-            connectString = connectString.substring(0, off);
-        } else {
-            this.chrootPath = null;
+        if (off < 0) {
+            return ValidPath.ROOT;
         }
 
-        String hostsList[] = connectString.split(",");
+        String chrootPath = connectString.substring(off);
+        // ignore "/" chroot spec, same as null
+        if (chrootPath.length() == 1) {
+            return ValidPath.ROOT;
+        } else {
+            return ValidPath.createUnchecked(chrootPath);
+        }
+    }
+
+    private List<InetSocketAddress> parseServerAddresses(final String connectString) {
+        String hostsList[];
+        if(connectString.indexOf('/')>=0) {
+            hostsList = connectString.substring(0, connectString.indexOf('/')).split(",");
+        } else {
+            hostsList = connectString.split(",");
+        }
+
+        List<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>(hostsList.length);
         for (String host : hostsList) {
             int port = DEFAULT_PORT;
             int pidx = host.lastIndexOf(':');
@@ -75,13 +92,6 @@ public final class ConnectStringParser {
             }
             serverAddresses.add(InetSocketAddress.createUnresolved(host, port));
         }
-    }
-
-    public String getChrootPath() {
-        return chrootPath;
-    }
-
-    public ArrayList<InetSocketAddress> getServerAddresses() {
         return serverAddresses;
     }
 }

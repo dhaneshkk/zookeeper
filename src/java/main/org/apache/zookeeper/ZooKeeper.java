@@ -24,7 +24,7 @@ import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.client.ConnectStringParser;
 import org.apache.zookeeper.client.HostProvider;
 import org.apache.zookeeper.client.StaticHostProvider;
-import org.apache.zookeeper.common.PathUtils;
+import org.apache.zookeeper.common.ValidPath;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.proto.*;
@@ -140,7 +140,7 @@ public class ZooKeeper {
         }
 
         /* (non-Javadoc)
-         * @see org.apache.zookeeper.ClientWatchManager#materialize(Event.KeeperState, 
+         * @see org.apache.zookeeper.ClientWatchManager#materialize(Event.KeeperState,
          *                                                        Event.EventType, java.lang.String)
          */
         @Override
@@ -229,8 +229,8 @@ public class ZooKeeper {
      * Register a watcher for a particular path.
      */
     abstract class WatchRegistration {
-        private Watcher watcher;
-        private String clientPath;
+        private final Watcher watcher;
+        private final String clientPath;
         public WatchRegistration(Watcher watcher, String clientPath)
         {
             this.watcher = watcher;
@@ -759,7 +759,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath, createMode.isSequential());
+        ValidPath.createUnchecked(clientPath, createMode.isSequential());
 
         final String serverPath = prependChroot(clientPath);
 
@@ -796,7 +796,7 @@ public class ZooKeeper {
             CreateMode createMode,  StringCallback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath, createMode.isSequential());
+        ValidPath.createUnchecked(clientPath, createMode.isSequential());
 
         final String serverPath = prependChroot(clientPath);
 
@@ -844,7 +844,7 @@ public class ZooKeeper {
         throws InterruptedException, KeeperException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath;
 
@@ -904,7 +904,7 @@ public class ZooKeeper {
         }
 
         List<OpResult> results = response.getResultList();
-        
+
         ErrorResult fatalError = null;
         for (OpResult result : results) {
             if (result instanceof ErrorResult && ((ErrorResult)result).getErr() != KeeperException.Code.OK.intValue()) {
@@ -935,7 +935,7 @@ public class ZooKeeper {
             Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath;
 
@@ -980,7 +980,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1041,7 +1041,7 @@ public class ZooKeeper {
             StatCallback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1093,7 +1093,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
      {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1152,7 +1152,7 @@ public class ZooKeeper {
             DataCallback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1213,7 +1213,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1241,7 +1241,7 @@ public class ZooKeeper {
             StatCallback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1275,7 +1275,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1302,7 +1302,7 @@ public class ZooKeeper {
             Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1339,7 +1339,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1370,7 +1370,7 @@ public class ZooKeeper {
             StatCallback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1410,7 +1410,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1468,7 +1468,7 @@ public class ZooKeeper {
             ChildrenCallback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1514,7 +1514,7 @@ public class ZooKeeper {
      * if no node with the given path exists.
      *
      * @since 3.3.0
-     * 
+     *
      * @param path
      * @param watcher explicit watcher
      * @param stat stat of the znode designated by path
@@ -1528,7 +1528,7 @@ public class ZooKeeper {
         throws KeeperException, InterruptedException
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1570,7 +1570,7 @@ public class ZooKeeper {
      * if no node with the given path exists.
      *
      * @since 3.3.0
-     * 
+     *
      * @param path
      * @param watch
      * @param stat stat of the znode designated by path
@@ -1589,14 +1589,14 @@ public class ZooKeeper {
      * The asynchronous version of getChildren.
      *
      * @since 3.3.0
-     * 
+     *
      * @see #getChildren(String, Watcher, Stat)
      */
     public void getChildren(final String path, Watcher watcher,
             Children2Callback cb, Object ctx)
     {
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         // the watch contains the un-chroot path
         WatchRegistration wcb = null;
@@ -1620,7 +1620,7 @@ public class ZooKeeper {
      * The asynchronous version of getChildren.
      *
      * @since 3.3.0
-     * 
+     *
      * @see #getChildren(String, boolean, Stat)
      */
     public void getChildren(String path, boolean watch, Children2Callback cb,
@@ -1638,7 +1638,7 @@ public class ZooKeeper {
      */
     public void sync(final String path, VoidCallback cb, Object ctx){
         final String clientPath = path;
-        PathUtils.validatePath(clientPath);
+        ValidPath.createUnchecked(clientPath);
 
         final String serverPath = prependChroot(clientPath);
 
@@ -1658,10 +1658,10 @@ public class ZooKeeper {
     /**
      * String representation of this ZooKeeper client. Suitable for things
      * like logging.
-     * 
+     *
      * Do NOT count on the format of this string, it may change without
      * warning.
-     * 
+     *
      * @since 3.3.0
      */
     @Override
@@ -1676,16 +1676,16 @@ public class ZooKeeper {
 
     /*
      * Methods to aid in testing follow.
-     * 
+     *
      * THESE METHODS ARE EXPECTED TO BE USED FOR TESTING ONLY!!!
      */
 
     /**
      * Wait up to wait milliseconds for the underlying threads to shutdown.
      * THIS METHOD IS EXPECTED TO BE USED FOR TESTING ONLY!!!
-     * 
+     *
      * @since 3.3.0
-     * 
+     *
      * @param wait max wait in milliseconds
      * @return true iff all threads are shutdown, otw false
      */
@@ -1707,7 +1707,7 @@ public class ZooKeeper {
      * THIS METHOD IS EXPECTED TO BE USED FOR TESTING ONLY!!!
      *
      * @since 3.3.0
-     * 
+     *
      * @return ip address of the remote side of the connection or null if
      *         not connected
      */
@@ -1715,12 +1715,12 @@ public class ZooKeeper {
         return cnxn.sendThread.getClientCnxnSocket().getRemoteSocketAddress();
     }
 
-    /** 
+    /**
      * Returns the local address to which the socket is bound.
      * THIS METHOD IS EXPECTED TO BE USED FOR TESTING ONLY!!!
      *
      * @since 3.3.0
-     * 
+     *
      * @return ip address of the remote side of the connection or null if
      *         not connected
      */

@@ -56,6 +56,7 @@ import org.apache.zookeeper.ZooKeeper.States;
 import org.apache.zookeeper.ZooKeeper.WatchRegistration;
 import org.apache.zookeeper.client.HostProvider;
 import org.apache.zookeeper.client.ZooKeeperSaslClient;
+import org.apache.zookeeper.common.ValidPath;
 import org.apache.zookeeper.proto.AuthPacket;
 import org.apache.zookeeper.proto.ConnectRequest;
 import org.apache.zookeeper.proto.CreateResponse;
@@ -330,7 +331,7 @@ public class ClientCnxn {
      *                mode in case of partitioning
      * @throws IOException
      */
-    public ClientCnxn(String chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper,
+    public ClientCnxn(ValidPath chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper,
             ClientWatchManager watcher, ClientCnxnSocket clientCnxnSocket, boolean canBeReadOnly)
             throws IOException {
         this(chrootPath, hostProvider, sessionTimeout, zooKeeper, watcher,
@@ -359,7 +360,7 @@ public class ClientCnxn {
      *                mode in case of partitioning
      * @throws IOException
      */
-    public ClientCnxn(String chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper,
+    public ClientCnxn(ValidPath chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper,
             ClientWatchManager watcher, ClientCnxnSocket clientCnxnSocket,
             long sessionId, byte[] sessionPasswd, boolean canBeReadOnly) {
         this.zooKeeper = zooKeeper;
@@ -368,7 +369,7 @@ public class ClientCnxn {
         this.sessionPasswd = sessionPasswd;
         this.sessionTimeout = sessionTimeout;
         this.hostProvider = hostProvider;
-        this.chrootPath = chrootPath;
+        this.chrootPath = chrootPath.isRoot() ? null : chrootPath.toString();
 
         connectTimeout = sessionTimeout / hostProvider.size();
         readTimeout = sessionTimeout * 2 / 3;
