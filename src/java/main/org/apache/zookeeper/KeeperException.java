@@ -292,29 +292,28 @@ public abstract class KeeperException extends Exception {
      */
     public static enum Code implements CodeDeprecated {
         /** Everything is OK */
-        OK (Ok),
-
+        OK (Ok, "ok"),
         /** System and server-side errors.
          * This is never thrown by the server, it shouldn't be used other than
          * to indicate a range. Specifically error codes greater than this
          * value, but lesser than {@link #APIERROR}, are system errors.
          */
-        SYSTEMERROR (SystemError),
+        SYSTEMERROR (SystemError, "SystemError"),
 
         /** A runtime inconsistency was found */
-        RUNTIMEINCONSISTENCY (RuntimeInconsistency),
+        RUNTIMEINCONSISTENCY (RuntimeInconsistency, "RuntimeInconsistency"),
         /** A data inconsistency was found */
-        DATAINCONSISTENCY (DataInconsistency),
+        DATAINCONSISTENCY (DataInconsistency, "DataInconsistency"),
         /** Connection to the server has been lost */
-        CONNECTIONLOSS (ConnectionLoss),
+        CONNECTIONLOSS (ConnectionLoss, "ConnectionLoss"),
         /** Error while marshalling or unmarshalling data */
-        MARSHALLINGERROR (MarshallingError),
+        MARSHALLINGERROR (MarshallingError, "MarshallingError"),
         /** Operation is unimplemented */
-        UNIMPLEMENTED (Unimplemented),
+        UNIMPLEMENTED (Unimplemented, "Unimplemented"),
         /** Operation timeout */
-        OPERATIONTIMEOUT (OperationTimeout),
+        OPERATIONTIMEOUT (OperationTimeout, "OperationTimeout"),
         /** Invalid arguments */
-        BADARGUMENTS (BadArguments),
+        BADARGUMENTS (BadArguments, "BadArguments"),
 
         /** API errors.
          * This is never thrown by the server, it shouldn't be used other than
@@ -322,33 +321,33 @@ public abstract class KeeperException extends Exception {
          * value are API errors (while values less than this indicate a
          * {@link #SYSTEMERROR}).
          */
-        APIERROR (APIError),
+        APIERROR (APIError, "APIError"),
 
         /** Node does not exist */
-        NONODE (NoNode),
+        NONODE (NoNode, "NoNode"),
         /** Not authenticated */
-        NOAUTH (NoAuth),
+        NOAUTH (NoAuth, "NoAuth"),
         /** Version conflict */
-        BADVERSION (BadVersion),
+        BADVERSION (BadVersion, "BadVersion"),
         /** Ephemeral nodes may not have children */
-        NOCHILDRENFOREPHEMERALS (NoChildrenForEphemerals),
+        NOCHILDRENFOREPHEMERALS (NoChildrenForEphemerals, "NoChildrenForEphemerals"),
         /** The node already exists */
-        NODEEXISTS (NodeExists),
+        NODEEXISTS (NodeExists, "NodeExists"),
         /** The node has children */
-        NOTEMPTY (NotEmpty),
+        NOTEMPTY (NotEmpty, "Directory not empty"),
         /** The session has been expired by the server */
-        SESSIONEXPIRED (SessionExpired),
+        SESSIONEXPIRED (SessionExpired, "Session expired"),
         /** Invalid callback specified */
-        INVALIDCALLBACK (InvalidCallback),
+        INVALIDCALLBACK (InvalidCallback, "Invalid callback"),
         /** Invalid ACL specified */
-        INVALIDACL (InvalidACL),
+        INVALIDACL (InvalidACL, "InvalidACL"),
         /** Client authentication failed */
-        AUTHFAILED (AuthFailed),
+        AUTHFAILED (AuthFailed, "AuthFailed"),
         /** Session moved to another server, so operation is ignored */
-        SESSIONMOVED (-118),
+        SESSIONMOVED (-118, "Session moved"),
         /** State-changing request is passed to read-only server */
-        NOTREADONLY (-119),
-        INVALIDPATH (-120);
+        NOTREADONLY (-119, "Not a read-only call"),
+        INVALIDPATH(-120, "Invalid path");
 
         private static final Map<Integer,Code> lookup
             = new HashMap<Integer,Code>();
@@ -359,8 +358,11 @@ public abstract class KeeperException extends Exception {
         }
 
         private final int code;
-        Code(int code) {
+        private final String message;
+
+        Code(int code, String message) {
             this.code = code;
+            this.message = message;
         }
 
         /**
@@ -377,57 +379,14 @@ public abstract class KeeperException extends Exception {
         public static Code get(int code) {
             return lookup.get(code);
         }
+
+        public String getMessage() {
+            return message;
+        }
     }
 
     static String getCodeMessage(Code code) {
-        switch (code) {
-            case OK:
-                return "ok";
-            case SYSTEMERROR:
-                return "SystemError";
-            case RUNTIMEINCONSISTENCY:
-                return "RuntimeInconsistency";
-            case DATAINCONSISTENCY:
-                return "DataInconsistency";
-            case CONNECTIONLOSS:
-                return "ConnectionLoss";
-            case MARSHALLINGERROR:
-                return "MarshallingError";
-            case UNIMPLEMENTED:
-                return "Unimplemented";
-            case OPERATIONTIMEOUT:
-                return "OperationTimeout";
-            case BADARGUMENTS:
-                return "BadArguments";
-            case APIERROR:
-                return "APIError";
-            case NONODE:
-                return "NoNode";
-            case NOAUTH:
-                return "NoAuth";
-            case BADVERSION:
-                return "BadVersion";
-            case NOCHILDRENFOREPHEMERALS:
-                return "NoChildrenForEphemerals";
-            case NODEEXISTS:
-                return "NodeExists";
-            case INVALIDACL:
-                return "InvalidACL";
-            case AUTHFAILED:
-                return "AuthFailed";
-            case NOTEMPTY:
-                return "Directory not empty";
-            case SESSIONEXPIRED:
-                return "Session expired";
-            case INVALIDCALLBACK:
-                return "Invalid callback";
-            case SESSIONMOVED:
-                return "Session moved";
-            case NOTREADONLY:
-                return "Not a read-only call";
-            default:
-                return "Unknown error " + code;
-        }
+        return code.getMessage();
     }
 
     private Code code;
