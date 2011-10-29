@@ -52,6 +52,7 @@ import org.apache.zookeeper.proto.SetDataRequest;
 import org.apache.zookeeper.proto.CheckVersionRequest;
 import org.apache.zookeeper.server.Request.Meta;
 import org.apache.zookeeper.server.ZooKeeperServer.ChangeRecord;
+import org.apache.zookeeper.server.auth.AccessControl;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.DeleteTxn;
@@ -242,7 +243,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
      * @param request
      * @param record
      */
-    protected Request pRequest2Txn(OpCode type, long zxid, Request request, Record record) throws KeeperException {
+    protected Request pRequest2Txn(AccessControl accessControl, OpCode type, long zxid, Request request, Record record) throws KeeperException {
         Path path;
         Record txn = null;
 
@@ -260,11 +261,11 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     throw e;
                 }
 
-                AccessControlList acl = zks.accessControl.fixup(request.getMeta().getAuthInfo(),
+                AccessControlList acl = accessControl.fixup(request.getMeta().getAuthInfo(),
                         AccessControlList.fromJuteACL(createRequest.getAcl()), path);
                 ChangeRecord parentRecord = getRecordForPath(path.getParent());
 
-                zks.accessControl.check(parentRecord.acl, Permission.CREATE, request.getMeta().getAuthInfo());
+                accessControl.check(parentRecord.acl, Permission.CREATE, request.getMeta().getAuthInfo());
                 int parentCVersion = parentRecord.stat.getCversion();
                 CreateMode createMode = CreateMode.fromFlag(createRequest.getFlags());
                 if (createMode.isSequential()) {
@@ -304,7 +305,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
 
                 parentRecord = getRecordForPath(path.getParent());
                 ChangeRecord nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(parentRecord.acl, Permission.DELETE, request.getMeta().getAuthInfo());
+                accessControl.check(parentRecord.acl, Permission.DELETE, request.getMeta().getAuthInfo());
                 checkAndIncVersion(nodeRecord.stat.getVersion(), deleteRequest.getVersion(), path);
                 if (nodeRecord.childCount > 0) {
                     throw new KeeperException.NotEmptyException(path);
@@ -319,7 +320,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 SetDataRequest setDataRequest = (SetDataRequest)record;
                 path = new Path(setDataRequest.getPath());
                 nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(nodeRecord.acl, Permission.WRITE, request.getMeta().getAuthInfo());
+                accessControl.check(nodeRecord.acl, Permission.WRITE, request.getMeta().getAuthInfo());
                 int newVersion = checkAndIncVersion(nodeRecord.stat.getVersion(), setDataRequest.getVersion(), path);
                 txn = new SetDataTxn(path.toString(), setDataRequest.getData(), newVersion);
                 nodeRecord = nodeRecord.duplicate(zxid);
@@ -329,10 +330,10 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             case setACL:
                 SetACLRequest setAclRequest = (SetACLRequest)record;
                 path = new Path(setAclRequest.getPath());
-                acl = zks.accessControl.fixup(request.getMeta().getAuthInfo(),
+                acl = accessControl.fixup(request.getMeta().getAuthInfo(),
                         AccessControlList.fromJuteACL(setAclRequest.getAcl()), path);
                 nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(nodeRecord.acl, Permission.ADMIN, request.getMeta().getAuthInfo());
+                accessControl.check(nodeRecord.acl, Permission.ADMIN, request.getMeta().getAuthInfo());
                 newVersion = checkAndIncVersion(nodeRecord.stat.getAversion(), setAclRequest.getVersion(), path);
                 txn = new SetACLTxn(path.toString(), acl.toJuteACL(), newVersion);
                 nodeRecord = nodeRecord.duplicate(zxid);
@@ -374,7 +375,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                 CheckVersionRequest checkVersionRequest = (CheckVersionRequest)record;
                 path = new Path(checkVersionRequest.getPath());
                 nodeRecord = getRecordForPath(path);
-                zks.accessControl.check(nodeRecord.acl, Permission.READ, request.getMeta().getAuthInfo());
+                accessControl.check(nodeRecord.acl, Permission.READ, request.getMeta().getAuthInfo());
                 txn = new CheckVersionTxn(path.toString(), checkAndIncVersion(nodeRecord.stat.getVersion(),
                         checkVersionRequest.getVersion(), path));
                 break;
@@ -413,7 +414,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             case setData:
             case setACL:
             case check:
-                newRequest = pRequest2Txn(request.getMeta().getType(), zks.getNextZxid(), request, request.deserializeRequestRecord());
+                newRequest = pRequest2Txn(zks.accessControl, request.getMeta().getType(), zks.getNextZxid(), request, request.deserializeRequestRecord());
                 break;
             case multi:
                 MultiTransactionRecord multiRequest = (MultiTransactionRecord) request.deserializeRequestRecord();
@@ -443,7 +444,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
                     /* Prep the request and convert to a Txn */
                     else {
                         try {
-                            Request subRequest = pRequest2Txn(op.getType(), zxid, request, subrequest);
+                            Request subRequest = pRequest2Txn(zks.accessControl, op.getType(), zxid, request, subrequest);
                             type = op.getType();
                             txn = subRequest.getTxn();
                         } catch (KeeperException e) {
@@ -482,7 +483,7 @@ public class PrepRequestProcessor extends Thread implements RequestProcessor {
             //create/close session don't require request record
             case createSession:
             case closeSession:
-                newRequest = pRequest2Txn(request.getMeta().getType(), zks.getNextZxid(), request, null);
+                newRequest = pRequest2Txn(zks.accessControl, request.getMeta().getType(), zks.getNextZxid(), request, null);
                 break;
             }
         } catch (KeeperException e) {
