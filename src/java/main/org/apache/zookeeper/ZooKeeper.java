@@ -18,7 +18,22 @@
 
 package org.apache.zookeeper;
 
-import org.apache.zookeeper.AsyncCallback.*;
+import java.io.IOException;
+import java.net.SocketAddress;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.zookeeper.AsyncCallback.ACLCallback;
+import org.apache.zookeeper.AsyncCallback.Children2Callback;
+import org.apache.zookeeper.AsyncCallback.ChildrenCallback;
+import org.apache.zookeeper.AsyncCallback.DataCallback;
+import org.apache.zookeeper.AsyncCallback.StatCallback;
+import org.apache.zookeeper.AsyncCallback.StringCallback;
+import org.apache.zookeeper.AsyncCallback.VoidCallback;
 import org.apache.zookeeper.OpResult.ErrorResult;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.client.ConnectStringParser;
@@ -27,14 +42,28 @@ import org.apache.zookeeper.client.StaticHostProvider;
 import org.apache.zookeeper.common.ValidPath;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
-import org.apache.zookeeper.proto.*;
-import org.apache.zookeeper.server.DataTree;
+import org.apache.zookeeper.proto.CreateRequest;
+import org.apache.zookeeper.proto.CreateResponse;
+import org.apache.zookeeper.proto.DeleteRequest;
+import org.apache.zookeeper.proto.ExistsRequest;
+import org.apache.zookeeper.proto.GetACLRequest;
+import org.apache.zookeeper.proto.GetACLResponse;
+import org.apache.zookeeper.proto.GetChildren2Request;
+import org.apache.zookeeper.proto.GetChildren2Response;
+import org.apache.zookeeper.proto.GetChildrenRequest;
+import org.apache.zookeeper.proto.GetChildrenResponse;
+import org.apache.zookeeper.proto.GetDataRequest;
+import org.apache.zookeeper.proto.GetDataResponse;
+import org.apache.zookeeper.proto.ReplyHeader;
+import org.apache.zookeeper.proto.RequestHeader;
+import org.apache.zookeeper.proto.SetACLRequest;
+import org.apache.zookeeper.proto.SetACLResponse;
+import org.apache.zookeeper.proto.SetDataRequest;
+import org.apache.zookeeper.proto.SetDataResponse;
+import org.apache.zookeeper.proto.SyncRequest;
+import org.apache.zookeeper.proto.SyncResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.net.SocketAddress;
-import java.util.*;
 
 /**
  * This is the main class of ZooKeeper client library. To use a ZooKeeper
@@ -1115,7 +1144,7 @@ public class ZooKeeper {
                     clientPath);
         }
         if (stat != null) {
-            DataTree.copyStat(response.getStat(), stat);
+            copyStat(response.getStat(), stat);
         }
         return response.getData();
     }
@@ -1289,7 +1318,7 @@ public class ZooKeeper {
             throw KeeperException.create(KeeperException.Code.get(r.getErr()),
                     clientPath);
         }
-        DataTree.copyStat(response.getStat(), stat);
+        copyStat(response.getStat(), stat);
         return response.getAcl();
     }
 
@@ -1550,7 +1579,7 @@ public class ZooKeeper {
                     clientPath);
         }
         if (stat != null) {
-            DataTree.copyStat(response.getStat(), stat);
+            copyStat(response.getStat(), stat);
         }
         return response.getChildren();
     }
@@ -1743,5 +1772,19 @@ public class ZooKeeper {
             ioe.initCause(e);
             throw ioe;
         }
+    }
+
+    static private void copyStat(Stat from, Stat to) {
+        to.setAversion(from.getAversion());
+        to.setCtime(from.getCtime());
+        to.setCversion(from.getCversion());
+        to.setCzxid(from.getCzxid());
+        to.setMtime(from.getMtime());
+        to.setMzxid(from.getMzxid());
+        to.setPzxid(from.getPzxid());
+        to.setVersion(from.getVersion());
+        to.setEphemeralOwner(from.getEphemeralOwner());
+        to.setDataLength(from.getDataLength());
+        to.setNumChildren(from.getNumChildren());
     }
 }

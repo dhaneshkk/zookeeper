@@ -40,7 +40,6 @@ import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
-import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.CreateTxn;
@@ -278,20 +277,6 @@ public class DataTree {
         to.setPzxid(from.getPzxid());
         to.setVersion(from.getVersion());
         to.setEphemeralOwner(from.getEphemeralOwner());
-    }
-
-    static public void copyStat(Stat from, Stat to) {
-        to.setAversion(from.getAversion());
-        to.setCtime(from.getCtime());
-        to.setCversion(from.getCversion());
-        to.setCzxid(from.getCzxid());
-        to.setMtime(from.getMtime());
-        to.setMzxid(from.getMzxid());
-        to.setPzxid(from.getPzxid());
-        to.setVersion(from.getVersion());
-        to.setEphemeralOwner(from.getEphemeralOwner());
-        to.setDataLength(from.getDataLength());
-        to.setNumChildren(from.getNumChildren());
     }
 
     /**
