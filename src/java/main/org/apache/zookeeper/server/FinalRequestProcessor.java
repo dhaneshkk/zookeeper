@@ -20,15 +20,13 @@ package org.apache.zookeeper.server;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+
 import org.apache.jute.Record;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.SessionMovedException;
+import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.proto.ReplyHeader;
-import org.apache.zookeeper.proto.SetWatches;
 import org.apache.zookeeper.proto.SyncRequest;
 import org.apache.zookeeper.proto.SyncResponse;
 import org.apache.zookeeper.server.Request.Meta;
@@ -37,6 +35,8 @@ import org.apache.zookeeper.server.Transaction.ProcessTxnResult;
 import org.apache.zookeeper.server.ZooKeeperServer.ChangeRecord;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.ErrorTxn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This Request processor actually applies any transaction associated with a
@@ -184,17 +184,9 @@ public class FinalRequestProcessor implements RequestProcessor {
                 break;
             }
 
-            case setWatches: {
+            case setWatches:
                 // XXX We really should NOT need this!!!!
-                request.getOriginalByteBuffer().rewind();
-                SetWatches setWatches = (SetWatches)request.deserializeRequestRecord();
-                long relativeZxid = setWatches.getRelativeZxid();
-                zks.getZKDatabase().setWatches(relativeZxid,
-                        setWatches.getDataWatches(),
-                        setWatches.getExistWatches(),
-                        setWatches.getChildWatches(), cnxn);
-                break;
-            }
+                // request.getOriginalByteBuffer().rewind();
             case exists:
             case getData:
             case getACL:

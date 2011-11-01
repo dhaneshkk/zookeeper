@@ -1,13 +1,17 @@
 package org.apache.zookeeper.server;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.NoAuthException;
 import org.apache.zookeeper.KeeperException.NoNodeException;
+import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
+import org.apache.zookeeper.Watcher.Event.EventType;
+import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.AccessControlList.Permission;
 import org.apache.zookeeper.proto.ExistsRequest;
@@ -58,6 +62,7 @@ public abstract class ReadRequest {
         case getACL: return new ReadRequest.GetACL((GetACLRequest) record);
         case getChildren: return new ReadRequest.GetChildren((GetChildrenRequest) record);
         case getChildren2: return new ReadRequest.GetChildren2((GetChildren2Request) record);
+        case setWatches: return new ReadRequest.SetWatches((org.apache.zookeeper.proto.SetWatches)record);
         }
         throw new RuntimeException("unknown type " + meta.getType());
     }
@@ -164,6 +169,78 @@ public abstract class ReadRequest {
 
         @Override void setWatcher(DataTree tree, Watcher watcher) {
             tree.dataWatches.addWatch(path, watcher);
+        }
+    }
+
+    public static class SetWatches extends ReadRequest {
+        private final long relativeZxid;
+        private final List<String> dataWatches, existWatches, childWatches;
+
+        public SetWatches(org.apache.zookeeper.proto.SetWatches record) {
+            super("/", true);
+            relativeZxid = record.getRelativeZxid();
+            dataWatches  = record.getDataWatches();
+            existWatches = record.getExistWatches();
+            childWatches = record.getChildWatches();
+        }
+
+        @Override Record getResponse(DataNode node) { return null; }
+
+        @Override
+        void setWatcher(DataTree tree, Watcher watcher) {
+            for (String path : dataWatches) {
+                DataNode node = tree.getNode(path);
+                WatchedEvent e = null;
+                if (node == null) {
+                    e = new WatchedEvent(EventType.NodeDeleted,
+                            KeeperState.SyncConnected, path);
+                } else if (node.stat.getCzxid() > relativeZxid) {
+                    e = new WatchedEvent(EventType.NodeCreated,
+                            KeeperState.SyncConnected, path);
+                } else if (node.stat.getMzxid() > relativeZxid) {
+                    e = new WatchedEvent(EventType.NodeDataChanged,
+                            KeeperState.SyncConnected, path);
+                }
+                if (e == null) {
+                    tree.dataWatches.addWatch(path, watcher);
+                } else {
+                    watcher.process(e);
+                }
+            }
+            for (String path : existWatches) {
+                DataNode node = tree.getNode(path);
+                WatchedEvent e = null;
+                if (node == null) {
+                    // This is the case when the watch was registered
+                } else if (node.stat.getMzxid() > relativeZxid) {
+                    e = new WatchedEvent(EventType.NodeDataChanged,
+                            KeeperState.SyncConnected, path);
+                } else {
+                    e = new WatchedEvent(EventType.NodeCreated,
+                            KeeperState.SyncConnected, path);
+                }
+                if (e == null) {
+                    tree.dataWatches.addWatch(path, watcher);
+                } else {
+                    watcher.process(e);
+                }
+            }
+            for (String path : childWatches) {
+                DataNode node = tree.getNode(path);
+                WatchedEvent e = null;
+                if (node == null) {
+                    e = new WatchedEvent(EventType.NodeDeleted,
+                            KeeperState.SyncConnected, path);
+                } else if (node.stat.getPzxid() > relativeZxid) {
+                    e = new WatchedEvent(EventType.NodeChildrenChanged,
+                            KeeperState.SyncConnected, path);
+                }
+                if (e == null) {
+                    tree.childWatches.addWatch(path, watcher);
+                } else {
+                    watcher.process(e);
+                }
+            }
         }
     }
 }

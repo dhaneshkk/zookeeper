@@ -32,15 +32,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.jute.Index;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Quotas;
 import org.apache.zookeeper.StatsTrack;
-import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.Watcher.Event.EventType;
-import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.common.PathTrie;
@@ -50,6 +45,8 @@ import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.TxnHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class maintains the tree data structure. It doesn't have any networking
@@ -698,64 +695,6 @@ public class DataTree {
     public void removeCnxn(Watcher watcher) {
         dataWatches.removeWatcher(watcher);
         childWatches.removeWatcher(watcher);
-    }
-
-    public void setWatches(long relativeZxid, List<String> dataWatches,
-            List<String> existWatches, List<String> childWatches,
-            Watcher watcher) {
-        for (String path : dataWatches) {
-            DataNode node = getNode(path);
-            WatchedEvent e = null;
-            if (node == null) {
-                e = new WatchedEvent(EventType.NodeDeleted,
-                        KeeperState.SyncConnected, path);
-            } else if (node.stat.getCzxid() > relativeZxid) {
-                e = new WatchedEvent(EventType.NodeCreated,
-                        KeeperState.SyncConnected, path);
-            } else if (node.stat.getMzxid() > relativeZxid) {
-                e = new WatchedEvent(EventType.NodeDataChanged,
-                        KeeperState.SyncConnected, path);
-            }
-            if (e == null) {
-                this.dataWatches.addWatch(path, watcher);
-            } else {
-                watcher.process(e);
-            }
-        }
-        for (String path : existWatches) {
-            DataNode node = getNode(path);
-            WatchedEvent e = null;
-            if (node == null) {
-                // This is the case when the watch was registered
-            } else if (node.stat.getMzxid() > relativeZxid) {
-                e = new WatchedEvent(EventType.NodeDataChanged,
-                        KeeperState.SyncConnected, path);
-            } else {
-                e = new WatchedEvent(EventType.NodeCreated,
-                        KeeperState.SyncConnected, path);
-            }
-            if (e == null) {
-                this.dataWatches.addWatch(path, watcher);
-            } else {
-                watcher.process(e);
-            }
-        }
-        for (String path : childWatches) {
-            DataNode node = getNode(path);
-            WatchedEvent e = null;
-            if (node == null) {
-                e = new WatchedEvent(EventType.NodeDeleted,
-                        KeeperState.SyncConnected, path);
-            } else if (node.stat.getPzxid() > relativeZxid) {
-                e = new WatchedEvent(EventType.NodeChildrenChanged,
-                        KeeperState.SyncConnected, path);
-            }
-            if (e == null) {
-                this.childWatches.addWatch(path, watcher);
-            } else {
-                watcher.process(e);
-            }
-        }
     }
 
      /**

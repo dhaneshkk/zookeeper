@@ -34,10 +34,7 @@ import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.server.Request.Meta;
@@ -49,6 +46,8 @@ import org.apache.zookeeper.server.quorum.Leader.Proposal;
 import org.apache.zookeeper.server.quorum.QuorumPacket;
 import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.txn.TxnHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class maintains the in memory database of zookeeper
@@ -313,19 +312,6 @@ public class ZKDatabase {
      */
     public AccessControlList convertLong(Long aclL) {
         return dataTree.convertLong(aclL);
-    }
-
-    /**
-     * set watches on the datatree
-     * @param relativeZxid the relative zxid that client has seen
-     * @param dataWatches the data watches the client wants to reset
-     * @param existWatches the exists watches the client wants to reset
-     * @param childWatches the child watches the client wants to reset
-     * @param watcher the watcher function
-     */
-    public void setWatches(long relativeZxid, List<String> dataWatches,
-            List<String> existWatches, List<String> childWatches, Watcher watcher) {
-        dataTree.setWatches(relativeZxid, dataWatches, existWatches, childWatches, watcher);
     }
 
     /**
