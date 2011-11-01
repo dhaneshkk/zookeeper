@@ -22,11 +22,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 import org.apache.jute.BinaryOutputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZKTestCase;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SerializationPerfTest extends ZKTestCase {
     protected static final Logger LOG = LoggerFactory.getLogger(SerializationPerfTest.class);
@@ -40,7 +40,7 @@ public class SerializationPerfTest extends ZKTestCase {
     static int createNodes(DataTree tree, String path, int depth,
             int childcount, int parentCVersion, byte[] data) throws KeeperException.NodeExistsException, KeeperException.NoNodeException {
         path += "node" + depth;
-        tree.createNode(path, data, null, -1, ++parentCVersion, 1, 1);
+        buildCreateTransaction(path, data, null, -1, ++parentCVersion, 1, 1).process(tree);
 
         if (--depth == 0) {
             return 1;

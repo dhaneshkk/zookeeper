@@ -19,37 +19,36 @@
 package org.apache.zookeeper.test;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.Record;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.PortAssignment;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZKTestCase;
-import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.ZooDefs.Ids;
+import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.ZooKeeper;
+import org.apache.zookeeper.server.DataNode;
+import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.SyncRequestProcessor;
 import org.apache.zookeeper.server.ZooKeeperServer;
-import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
+import org.apache.zookeeper.server.persistence.FileHeader;
 import org.apache.zookeeper.server.persistence.FileTxnLog;
+import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.TxnLog.TxnIterator;
+import org.apache.zookeeper.txn.CreateTxn;
+import org.apache.zookeeper.txn.DeleteTxn;
 import org.apache.zookeeper.txn.TxnHeader;
 import org.junit.Assert;
 import org.junit.Test;
-import org.apache.zookeeper.server.DataTree;
-import org.apache.zookeeper.server.DataNode;
-import org.apache.zookeeper.txn.CreateTxn;
-import org.apache.zookeeper.txn.DeleteTxn;
-import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.jute.Record;
-import java.io.FileInputStream;
-
-import org.apache.jute.BinaryInputArchive;
-import org.apache.zookeeper.server.persistence.FileHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LoadFromLogTest extends ZKTestCase implements  Watcher {
     private static String HOSTPORT = "127.0.0.1:" + PortAssignment.unique();
@@ -144,10 +143,10 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
         File tmpDir = ClientBase.createTmpDir();
         FileTxnSnapLog logFile = new FileTxnSnapLog(tmpDir, tmpDir);
         DataTree dt = new DataTree();
-        dt.createNode("/test", new byte[0], null, 0, -1, 1, 1);
+        buildCreateTransaction("/test", new byte[0], null, 0, -1, 1, 1).process(dt);
         for (count = 1; count <= 3; count++) {
-            dt.createNode("/test/" + count, new byte[0], null, 0, -1, count,
-                    System.currentTimeMillis());
+            buildCreateTransaction("/test/" + count, new byte[0], null, 0, -1, count,
+                    System.currentTimeMillis()).process(dt);
         }
         DataNode zk = dt.getNode("/test");
 

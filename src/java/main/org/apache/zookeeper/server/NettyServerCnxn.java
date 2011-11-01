@@ -39,8 +39,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.Version;
 import org.apache.zookeeper.WatchedEvent;
@@ -54,6 +52,8 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.MessageEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.sun.management.UnixOperatingSystemMXBean;
 
@@ -494,13 +494,12 @@ public class NettyServerCnxn extends ServerCnxn {
             if (zkServer == null) {
                 pw.println(ZK_NOT_SERVING);
             } else {
-                DataTree dt = zkServer.getZKDatabase().getDataTree();
                 if (len == wchsCmd) {
-                    dt.dumpWatchesSummary(pw);
+                    zkServer.getZKDatabase().dumpWatchesSummary(pw);
                 } else if (len == wchpCmd) {
-                    dt.dumpWatches(pw, true);
+                    zkServer.getZKDatabase().dumpWatches(pw, true);
                 } else {
-                    dt.dumpWatches(pw, false);
+                    zkServer.getZKDatabase().dumpWatches(pw, false);
                 }
                 pw.println();
             }
@@ -536,7 +535,7 @@ public class NettyServerCnxn extends ServerCnxn {
             print("server_state", stats.getServerState());
             print("znode_count", zkdb.getNodeCount());
 
-            print("watch_count", zkdb.getDataTree().getWatchCount());
+            print("watch_count", zkdb.getWatchCount());
             print("ephemerals_count", zkdb.getDataTree().getEphemeralsCount());
             print("approximate_data_size", zkdb.getDataTree().approximateDataSize());
 

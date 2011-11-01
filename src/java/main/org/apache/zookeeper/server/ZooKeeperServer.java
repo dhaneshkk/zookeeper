@@ -32,11 +32,11 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.security.sasl.SaslException;
+
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
@@ -63,8 +63,8 @@ import org.apache.zookeeper.server.auth.AuthenticationProvider;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.ReadOnlyZooKeeperServer;
 import org.apache.zookeeper.txn.TxnHeader;
-
-import javax.security.sasl.SaslException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class implements a simple standalone ZooKeeperServer. It sets up the
@@ -247,7 +247,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             txnHeader.setClientId(session);
             Transaction.CloseSession transaction = new Transaction.CloseSession(txnHeader);
             ProcessTxnResult rc = transaction.process(tree);
-            rc.trigger.triggerWatches(tree);
+            rc.trigger.triggerWatches(zkDb);
             if (sessionTracker != null) {
                 sessionTracker.removeSession(session);
             }

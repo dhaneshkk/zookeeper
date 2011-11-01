@@ -73,6 +73,10 @@ public class ZKDatabase {
     protected ReentrantReadWriteLock logLock = new ReentrantReadWriteLock();
     volatile private boolean initialized = false;
 
+    public final WatchManager dataWatches = new WatchManager();
+
+    public final WatchManager childWatches = new WatchManager();
+
     /**
      * the filetxnsnaplog that this zk database
      * maps to. There is a one to one relationship
@@ -259,8 +263,9 @@ public class ZKDatabase {
      * remove a cnxn from the datatree
      * @param cnxn the cnxn to remove from the datatree
      */
-    public void removeCnxn(ServerCnxn cnxn) {
-        dataTree.removeCnxn(cnxn);
+    public void removeCnxn(ServerCnxn watcher) {
+        dataWatches.removeWatcher(watcher);
+        childWatches.removeWatcher(watcher);
     }
 
     /**
@@ -402,10 +407,30 @@ public class ZKDatabase {
         try {
             Transaction transaction = Transaction.fromTxn(hdr, txn);
             ProcessTxnResult rc = transaction.process(dataTree);
-            rc.trigger.triggerWatches(dataTree);
+            rc.trigger.triggerWatches(this);
         } catch (KeeperException e) {
             LOG.warn("Failed: ", e);
         }
     }
 
+    public int getWatchCount() {
+        return dataWatches.size() + childWatches.size();
+    }
+
+    /**
+     * Summary of the watches on the datatree.
+     * @param pwriter the output to write to
+     */
+    public synchronized void dumpWatchesSummary(PrintWriter pwriter) {
+        pwriter.print(dataWatches.toString());
+    }
+
+    /**
+     * Write a text dump of all the watches on the datatree.
+     * Warning, this is expensive, use sparingly!
+     * @param pwriter the output to write to
+     */
+    public synchronized void dumpWatches(PrintWriter pwriter, boolean byPath) {
+        dataWatches.dumpWatches(pwriter, byPath);
+    }
 }

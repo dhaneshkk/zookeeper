@@ -79,7 +79,7 @@ public class FinalRequestProcessor implements RequestProcessor {
                 DataTree tree = zks.getZKDatabase().getDataTree();
                 try {
                     rc = transaction.process(tree);
-                    rc.trigger.triggerWatches(tree);
+                    rc.trigger.triggerWatches(zks.getZKDatabase());
                 } catch (KeeperException e) {
                     rc = new ProcessTxnResult(e.code().intValue(),
                                 transaction instanceof PathTransaction

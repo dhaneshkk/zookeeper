@@ -9,12 +9,12 @@ import java.util.Set;
 
 import org.apache.jute.Record;
 import org.apache.zookeeper.KeeperException;
+import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.KeeperException.NoNodeException;
 import org.apache.zookeeper.KeeperException.NodeExistsException;
 import org.apache.zookeeper.MultiResponse;
 import org.apache.zookeeper.Quotas;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.KeeperException.Code;
 import org.apache.zookeeper.Watcher.Event;
 import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.ZooDefs.OpCode;
@@ -99,7 +99,7 @@ public abstract class Transaction {
     }
 
     public interface TriggerWatches {
-        public void triggerWatches(DataTree tree);
+        public void triggerWatches(ZKDatabase zkdb);
     }
     ///////////////////////////////////
     // Transaction sub classes
@@ -186,9 +186,9 @@ public abstract class Transaction {
         }
 
         @Override
-        public void triggerWatches(DataTree tree) {
-            tree.dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
-            tree.childWatches.triggerWatch(path.getParent(), Event.EventType.NodeChildrenChanged);
+        public void triggerWatches(ZKDatabase zkdb) {
+            zkdb.dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
+            zkdb.childWatches.triggerWatch(path.getParent(), Event.EventType.NodeChildrenChanged);
         }
     }
 
@@ -248,10 +248,10 @@ public abstract class Transaction {
         }
 
         @Override
-        public void triggerWatches(DataTree tree) {
-            Set<Watcher> processed = tree.dataWatches.triggerWatch(path, EventType.NodeDeleted);
-            tree.childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
-            tree.childWatches.triggerWatch(path.getParent(), EventType.NodeChildrenChanged);
+        public void triggerWatches(ZKDatabase zkdb) {
+            Set<Watcher> processed = zkdb.dataWatches.triggerWatch(path, EventType.NodeDeleted);
+            zkdb.childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
+            zkdb.childWatches.triggerWatch(path.getParent(), EventType.NodeChildrenChanged);
         }
     }
 
@@ -294,8 +294,8 @@ public abstract class Transaction {
         }
 
         @Override
-        public void triggerWatches(DataTree tree) {
-            tree.dataWatches.triggerWatch(path, EventType.NodeDataChanged);
+        public void triggerWatches(ZKDatabase zkdb) {
+            zkdb.dataWatches.triggerWatch(path, EventType.NodeDataChanged);
         }
     }
 
@@ -488,7 +488,7 @@ public abstract class Transaction {
 
     static public class ProcessTxnResult {
         private static final TriggerWatches NO_OP_TRIGGER = new TriggerWatches(){
-            @Override public void triggerWatches(DataTree t){}
+            @Override public void triggerWatches(ZKDatabase zkdb){}
         };
 
         public final int err;
@@ -538,9 +538,9 @@ public abstract class Transaction {
         }
 
         @Override
-        public void triggerWatches(DataTree tree) {
+        public void triggerWatches(ZKDatabase zkdb) {
             for(TriggerWatches trigger : triggerList) {
-                trigger.triggerWatches(tree);
+                trigger.triggerWatches(zkdb);
             }
         }
     }

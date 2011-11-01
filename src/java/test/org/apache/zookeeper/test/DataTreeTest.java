@@ -18,31 +18,26 @@
 
 package org.apache.zookeeper.test;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZKTestCase;
-import org.apache.zookeeper.server.DataTree;
-import org.junit.After;
+import org.apache.zookeeper.server.DataNode;
+import org.apache.zookeeper.server.Transaction;
+import org.apache.zookeeper.server.ZKDatabase;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.apache.zookeeper.server.DataNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DataTreeTest extends ZKTestCase {
     protected static final Logger LOG = LoggerFactory.getLogger(DataTreeTest.class);
 
-    private DataTree dt;
+    private ZKDatabase zkdb;
 
     @Before
     public void setUp() throws Exception {
-        dt=new DataTree();
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        dt=null;
+        zkdb = new ZKDatabase(null);
     }
 
     @Test
@@ -56,9 +51,12 @@ public class DataTreeTest extends ZKTestCase {
         }
         MyWatcher watcher=new MyWatcher();
         // set a watch on the root node
-        dt.childWatches.addWatch("/", watcher);
+        zkdb.childWatches.addWatch("/", watcher);
         // add a new node, should trigger a watch
-        dt.createNode("/xyz", new byte[0], null, 0, dt.getNode("/").stat.getCversion()+1, 1, 1);
+        Transaction.Create transaction = buildCreateTransaction("/xyz", new byte[0], null, 0,
+                zkdb.getNode("/").stat.getCversion()+1, 1, 1);
+        transaction.process(zkdb.getDataTree());
+        transaction.triggerWatches(zkdb);
         Assert.assertFalse("Root node watch not triggered",!watcher.fired);
     }
 
@@ -67,11 +65,13 @@ public class DataTreeTest extends ZKTestCase {
      */
     @Test
     public void testIncrementCversion() throws Exception {
-        dt.createNode("/test", new byte[0], null, 0, dt.getNode("/").stat.getCversion()+1, 1, 1);
-        DataNode zk = dt.getNode("/test");
+        buildCreateTransaction("/test", new byte[0], null, 0, zkdb.getNode("/").stat.getCversion()+1, 1, 1)
+            .process(zkdb.getDataTree());
+
+        DataNode zk = zkdb.getNode("/test");
         int prevCversion = zk.stat.getCversion();
         long prevPzxid = zk.stat.getPzxid();
-        dt.setCversionPzxid("/test/",  prevCversion + 1, prevPzxid + 1);
+        zkdb.getDataTree().setCversionPzxid("/test/",  prevCversion + 1, prevPzxid + 1);
         int newCversion = zk.stat.getCversion();
         long newPzxid = zk.stat.getPzxid();
         Assert.assertTrue("<cversion, pzxid> verification failed. Expected: <" +

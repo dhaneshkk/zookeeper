@@ -35,15 +35,12 @@ import org.apache.jute.OutputArchive;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.Quotas;
 import org.apache.zookeeper.StatsTrack;
-import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.common.AccessControlList;
 import org.apache.zookeeper.common.Path;
 import org.apache.zookeeper.common.PathTrie;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.StatPersisted;
 import org.apache.zookeeper.server.util.SerializeUtils;
-import org.apache.zookeeper.txn.CreateTxn;
-import org.apache.zookeeper.txn.TxnHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,10 +64,6 @@ public class DataTree {
      */
     final ConcurrentHashMap<String, DataNode> nodes =
         new ConcurrentHashMap<String, DataNode>();
-
-    public final WatchManager dataWatches = new WatchManager();
-
-    public final WatchManager childWatches = new WatchManager();
 
     /** the root of zookeeper tree */
     private static final String rootZookeeper = "/";
@@ -191,10 +184,6 @@ public class DataTree {
 
     public int getNodeCount() {
         return nodes.size();
-    }
-
-    public int getWatchCount() {
-        return dataWatches.size() + childWatches.size();
     }
 
     int getEphemeralsCount() {
@@ -365,21 +354,6 @@ public class DataTree {
                     + updatedStat.getBytes() + " limit="
                     + thisStats.getBytes());
         }
-    }
-
-    public void createNode(final String path, byte data[], List<ACL> acl,
-            long ephemeralOwner, int parentCVersion, long zxid, long time)
-            throws KeeperException.NoNodeException,
-            KeeperException.NodeExistsException {
-        TxnHeader hdr = new TxnHeader();
-        hdr.setClientId(ephemeralOwner);
-        hdr.setZxid(zxid);
-        hdr.setTime(time);
-
-        CreateTxn txn = new CreateTxn(path, data, acl, true, parentCVersion);
-        Transaction.Create createTransaction = new Transaction.Create(hdr, txn);
-        createTransaction.process(this);
-        createTransaction.triggerWatches(this);
     }
 
     /**
@@ -641,23 +615,6 @@ public class DataTree {
     }
 
     /**
-     * Summary of the watches on the datatree.
-     * @param pwriter the output to write to
-     */
-    public synchronized void dumpWatchesSummary(PrintWriter pwriter) {
-        pwriter.print(dataWatches.toString());
-    }
-
-    /**
-     * Write a text dump of all the watches on the datatree.
-     * Warning, this is expensive, use sparingly!
-     * @param pwriter the output to write to
-     */
-    public synchronized void dumpWatches(PrintWriter pwriter, boolean byPath) {
-        dataWatches.dumpWatches(pwriter, byPath);
-    }
-
-    /**
      * Write a text dump of all the ephemerals in the datatree.
      * @param pwriter the output to write to
      */
@@ -675,11 +632,6 @@ public class DataTree {
                 }
             }
         }
-    }
-
-    public void removeCnxn(Watcher watcher) {
-        dataWatches.removeWatcher(watcher);
-        childWatches.removeWatcher(watcher);
     }
 
      /**

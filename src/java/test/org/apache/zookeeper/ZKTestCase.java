@@ -18,13 +18,19 @@
 
 package org.apache.zookeeper;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
+
+import org.apache.zookeeper.data.ACL;
+import org.apache.zookeeper.server.Transaction;
+import org.apache.zookeeper.txn.CreateTxn;
+import org.apache.zookeeper.txn.TxnHeader;
 import org.junit.Rule;
 import org.junit.rules.MethodRule;
 import org.junit.rules.TestWatchman;
 import org.junit.runner.RunWith;
 import org.junit.runners.model.FrameworkMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Base class for a non-parameterized ZK test.
@@ -32,7 +38,6 @@ import org.junit.runners.model.FrameworkMethod;
  * Basic utilities shared by all tests. Also logging of various events during
  * the test execution (start/stop/success/failure/etc...)
  */
-@SuppressWarnings("deprecation")
 @RunWith(JUnit4ZKTestRunner.class)
 public class ZKTestCase {
     private static final Logger LOG = LoggerFactory.getLogger(ZKTestCase.class);
@@ -68,4 +73,16 @@ public class ZKTestCase {
 
     };
 
+    protected static Transaction.Create buildCreateTransaction(final String path, byte data[], List<ACL> acl,
+            long ephemeralOwner, int parentCVersion, long zxid, long time)
+            throws KeeperException.NoNodeException,
+            KeeperException.NodeExistsException {
+        TxnHeader hdr = new TxnHeader();
+        hdr.setClientId(ephemeralOwner);
+        hdr.setZxid(zxid);
+        hdr.setTime(time);
+
+        CreateTxn txn = new CreateTxn(path, data, acl, true, parentCVersion);
+        return new Transaction.Create(hdr, txn);
+    }
 }

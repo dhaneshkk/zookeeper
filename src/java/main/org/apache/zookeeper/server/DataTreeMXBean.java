@@ -30,13 +30,9 @@ public interface DataTreeMXBean {
      * @return the most recent zxid processed by the data tree.
      */
     public String getLastZxid();
+
     /**
-     * @return number of watches set.
-     */
-    public int getWatchCount();
-    
-    /**
-     * @return data tree size in bytes. The size includes the znode path and 
+     * @return data tree size in bytes. The size includes the znode path and
      * its value.
      */
     public long approximateDataSize();

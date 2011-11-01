@@ -40,7 +40,7 @@ public abstract class ReadRequest {
     }
 
     abstract Record getResponse(DataNode node);
-    abstract void setWatcher(DataTree tree, Watcher watcher);
+    abstract void setWatcher(ZKDatabase zkdb, Watcher watcher);
     void checkPermission(ZooKeeperServer zks, Request request, DataNode node) throws NoAuthException {
         AccessControlList acl = zks.getZKDatabase().convertLong(node.acl);
         zks.accessControl.check(acl, Permission.READ, request.getMeta().getAuthInfo());
@@ -51,7 +51,7 @@ public abstract class ReadRequest {
         DataNode node = tree.getNode(path);
         if(node == null) throw new KeeperException.NoNodeException(path);
         checkPermission(zks, request, node);
-        if(watch) setWatcher(tree, request.getMeta().getCnxn());
+        if(watch) setWatcher(zks.getZKDatabase(), request.getMeta().getCnxn());
         return getResponse(node);
     }
 
@@ -85,8 +85,8 @@ public abstract class ReadRequest {
         }
 
         @Override
-        void setWatcher(DataTree tree, Watcher watcher) {
-            tree.childWatches.addWatch(path, watcher);
+        void setWatcher(ZKDatabase zkdb, Watcher watcher) {
+            zkdb.childWatches.addWatch(path, watcher);
         }
 
     }
@@ -109,8 +109,8 @@ public abstract class ReadRequest {
         }
 
         @Override
-        void setWatcher(DataTree tree, Watcher watcher) {
-            tree.childWatches.addWatch(path, watcher);
+        void setWatcher(ZKDatabase zkdb, Watcher watcher) {
+            zkdb.childWatches.addWatch(path, watcher);
         }
     }
 
@@ -125,8 +125,8 @@ public abstract class ReadRequest {
         }
 
         @Override
-        void setWatcher(DataTree tree, Watcher watcher) {
-            tree.dataWatches.addWatch(path, watcher);
+        void setWatcher(ZKDatabase zkdb, Watcher watcher) {
+            zkdb.dataWatches.addWatch(path, watcher);
         }
     }
 
@@ -136,7 +136,7 @@ public abstract class ReadRequest {
         }
 
         @Override Record getResponse(DataNode node) { throw new RuntimeException(); }
-        @Override void setWatcher(DataTree tree, Watcher watcher) { throw new RuntimeException(); }
+        @Override void setWatcher(ZKDatabase zkdb, Watcher watcher) { throw new RuntimeException(); }
 
         @Override
         Record process(ZooKeeperServer zks, Request request) throws NoNodeException, NoAuthException {
@@ -156,10 +156,10 @@ public abstract class ReadRequest {
 
         @Override
         Record process(ZooKeeperServer zks, Request request) throws NoNodeException {
-            DataTree tree = zks.getZKDatabase().getDataTree();
-            if(watch) setWatcher(tree, request.getMeta().getCnxn());
+            ZKDatabase zkdb = zks.getZKDatabase();
+            if(watch) setWatcher(zkdb, request.getMeta().getCnxn());
 
-            DataNode node = tree.getNode(path);
+            DataNode node = zkdb.getNode(path);
             if(node == null) {
                 throw new KeeperException.NoNodeException();
             }
@@ -167,8 +167,8 @@ public abstract class ReadRequest {
             return new ExistsResponse(node.getStat());
         }
 
-        @Override void setWatcher(DataTree tree, Watcher watcher) {
-            tree.dataWatches.addWatch(path, watcher);
+        @Override void setWatcher(ZKDatabase zkdb, Watcher watcher) {
+            zkdb.dataWatches.addWatch(path, watcher);
         }
     }
 
@@ -187,9 +187,9 @@ public abstract class ReadRequest {
         @Override Record getResponse(DataNode node) { return null; }
 
         @Override
-        void setWatcher(DataTree tree, Watcher watcher) {
+        void setWatcher(ZKDatabase zkdb, Watcher watcher) {
             for (String path : dataWatches) {
-                DataNode node = tree.getNode(path);
+                DataNode node = zkdb.getNode(path);
                 WatchedEvent e = null;
                 if (node == null) {
                     e = new WatchedEvent(EventType.NodeDeleted,
@@ -202,13 +202,13 @@ public abstract class ReadRequest {
                             KeeperState.SyncConnected, path);
                 }
                 if (e == null) {
-                    tree.dataWatches.addWatch(path, watcher);
+                    zkdb.dataWatches.addWatch(path, watcher);
                 } else {
                     watcher.process(e);
                 }
             }
             for (String path : existWatches) {
-                DataNode node = tree.getNode(path);
+                DataNode node = zkdb.getNode(path);
                 WatchedEvent e = null;
                 if (node == null) {
                     // This is the case when the watch was registered
@@ -220,13 +220,13 @@ public abstract class ReadRequest {
                             KeeperState.SyncConnected, path);
                 }
                 if (e == null) {
-                    tree.dataWatches.addWatch(path, watcher);
+                    zkdb.dataWatches.addWatch(path, watcher);
                 } else {
                     watcher.process(e);
                 }
             }
             for (String path : childWatches) {
-                DataNode node = tree.getNode(path);
+                DataNode node = zkdb.getNode(path);
                 WatchedEvent e = null;
                 if (node == null) {
                     e = new WatchedEvent(EventType.NodeDeleted,
@@ -236,7 +236,7 @@ public abstract class ReadRequest {
                             KeeperState.SyncConnected, path);
                 }
                 if (e == null) {
-                    tree.childWatches.addWatch(path, watcher);
+                    zkdb.childWatches.addWatch(path, watcher);
                 } else {
                     watcher.process(e);
                 }
