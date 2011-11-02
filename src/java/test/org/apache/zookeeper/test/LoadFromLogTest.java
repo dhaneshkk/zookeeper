@@ -40,8 +40,8 @@ import org.apache.zookeeper.server.SyncRequestProcessor;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.persistence.FileHeader;
 import org.apache.zookeeper.server.persistence.FileTxnLog;
+import org.apache.zookeeper.server.persistence.FileTxnLog.FileTxnIterator;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
-import org.apache.zookeeper.server.persistence.TxnLog.TxnIterator;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.DeleteTxn;
 import org.apache.zookeeper.txn.TxnHeader;
@@ -96,7 +96,7 @@ public class LoadFromLogTest extends ZKTestCase implements  Watcher {
         File logDir = new File(tmpDir, FileTxnSnapLog.version + FileTxnSnapLog.VERSION);
         FileTxnLog txnLog = new FileTxnLog(logDir);
 
-        TxnIterator itr = txnLog.read(0);
+        FileTxnIterator itr = txnLog.read(0);
         long expectedZxid = 0;
         long lastZxid = 0;
         TxnHeader hdr;

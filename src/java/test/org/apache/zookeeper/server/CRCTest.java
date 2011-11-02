@@ -35,22 +35,22 @@ import java.util.zip.CheckedInputStream;
 
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.InputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.PortAssignment;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.ZKTestCase;
-import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
+import org.apache.zookeeper.ZKTestCase;
 import org.apache.zookeeper.ZooDefs.Ids;
+import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.persistence.FileSnap;
 import org.apache.zookeeper.server.persistence.FileTxnLog;
-import org.apache.zookeeper.server.persistence.TxnLog.TxnIterator;
+import org.apache.zookeeper.server.persistence.FileTxnLog.FileTxnIterator;
 import org.apache.zookeeper.test.ClientBase;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CRCTest extends ZKTestCase implements Watcher {
     private static final Logger LOG = LoggerFactory.getLogger(CRCTest.class);
@@ -149,7 +149,7 @@ public class CRCTest extends ZKTestCase implements Watcher {
             }
         }
         FileTxnLog flog = new FileTxnLog(versionDir);
-        TxnIterator itr = flog.read(1);
+        FileTxnIterator itr = flog.read(1);
         //we will get a checksum failure
         try {
             while (itr.next()) {

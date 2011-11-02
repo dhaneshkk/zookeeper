@@ -32,7 +32,7 @@ import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.Transaction;
 import org.apache.zookeeper.server.Transaction.PathTransaction;
-import org.apache.zookeeper.server.persistence.TxnLog.TxnIterator;
+import org.apache.zookeeper.server.persistence.FileTxnLog.FileTxnIterator;
 import org.apache.zookeeper.txn.CreateSessionTxn;
 import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.TxnHeader;
@@ -52,8 +52,8 @@ public class FileTxnSnapLog {
     //the directory containing the
     //the snapshot directory
     File snapDir;
-    TxnLog txnLog;
-    SnapShot snapLog;
+    FileTxnLog txnLog;
+    FileSnap snapLog;
     public final static int VERSION = 2;
     public final static String version = "version-";
 
@@ -128,7 +128,7 @@ public class FileTxnSnapLog {
             PlayBackListener listener) throws IOException {
         snapLog.deserialize(dt, sessions);
         FileTxnLog txnLog = new FileTxnLog(dataDir);
-        TxnIterator itr = txnLog.read(dt.lastProcessedZxid+1);
+        FileTxnIterator itr = txnLog.read(dt.lastProcessedZxid+1);
         long highestZxid = dt.lastProcessedZxid;
         TxnHeader hdr;
         while (true) {

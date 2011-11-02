@@ -37,10 +37,10 @@ import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.util.SerializeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class implements the snapshot interface.
@@ -48,7 +48,7 @@ import org.apache.zookeeper.server.util.SerializeUtils;
  * and deserializing the right snapshot.
  * and provides access to the snapshots.
  */
-public class FileSnap implements SnapShot {
+public class FileSnap {
     File snapDir;
     private volatile boolean close = false;
     private static final int VERSION=2;
@@ -63,7 +63,7 @@ public class FileSnap implements SnapShot {
     /**
      * deserialize a data tree from the most recent snapshot
      * @return the zxid of the snapshot
-     */ 
+     */
     public long deserialize(DataTree dt, Map<Long, Integer> sessions)
             throws IOException {
         // we run through 100 snapshots (not all of them)
@@ -95,11 +95,11 @@ public class FileSnap implements SnapShot {
             } catch(IOException e) {
                 LOG.warn("problem reading snap file " + snap, e);
             } finally {
-                if (snapIS != null) 
+                if (snapIS != null)
                     snapIS.close();
-                if (crcIn != null) 
+                if (crcIn != null)
                     crcIn.close();
-            } 
+            }
         }
         if (!foundValid) {
             throw new IOException("Not able to find valid snapshots in " + snapDir);
@@ -121,7 +121,7 @@ public class FileSnap implements SnapShot {
         header.deserialize(ia, "fileheader");
         if (header.getMagic() != SNAP_MAGIC) {
             throw new IOException("mismatching magic headers "
-                    + header.getMagic() + 
+                    + header.getMagic() +
                     " !=  " + FileSnap.SNAP_MAGIC);
         }
         SerializeUtils.deserializeSnapshot(dt,ia,sessions);
@@ -138,14 +138,14 @@ public class FileSnap implements SnapShot {
         }
         return files.get(0);
     }
-    
+
     /**
-     * find the last (maybe) valid n snapshots. this does some 
+     * find the last (maybe) valid n snapshots. this does some
      * minor checks on the validity of the snapshots. It just
      * checks for / at the end of the snapshot. This does
      * not mean that the snapshot is truly valid but is
-     * valid with a high probability. also, the most recent 
-     * will be first on the list. 
+     * valid with a high probability. also, the most recent
+     * will be first on the list.
      * @param n the number of most recent snapshots
      * @return the last n snapshots (the number might be
      * less than n in case enough snapshots are not available).
@@ -177,7 +177,7 @@ public class FileSnap implements SnapShot {
     /**
      * find the last n snapshots. this does not have
      * any checks if the snapshot might be valid or not
-     * @param the number of most recent snapshots 
+     * @param the number of most recent snapshots
      * @return the last n snapshots
      * @throws IOException
      */
@@ -242,7 +242,6 @@ public class FileSnap implements SnapShot {
      * the close operation will block and will wait till serialize
      * is done and will set the close flag
      */
-    @Override
     public synchronized void close() throws IOException {
         close = true;
     }
