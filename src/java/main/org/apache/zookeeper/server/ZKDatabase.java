@@ -212,7 +212,8 @@ public class ZKDatabase {
             }
         };
 
-        long zxid = snapLog.restore(dataTree,sessionsWithTimeouts,listener);
+        dataTree = snapLog.restore(sessionsWithTimeouts,listener);
+        long zxid = dataTree.lastProcessedZxid;
         initialized = true;
         return zxid;
     }
@@ -356,7 +357,7 @@ public class ZKDatabase {
      */
     public void deserializeSnapshot(InputArchive ia) throws IOException {
         clear();
-        SerializeUtils.deserializeSnapshot(getDataTree(),ia,getSessionWithTimeOuts());
+        dataTree = SerializeUtils.deserializeSnapshot(ia,getSessionWithTimeOuts());
         initialized = true;
     }
 

@@ -528,8 +528,7 @@ public class DataTree {
         }
     }
 
-    private void deserializeList(Map<Long, AccessControlList> longKeyMap,
-            InputArchive ia) throws IOException {
+    private void deserializeList(InputArchive ia) throws IOException {
         int i = ia.readInt("map");
         while (i > 0) {
             Long val = ia.readLong("long");
@@ -576,19 +575,20 @@ public class DataTree {
         }
     }
 
-    public void deserialize(InputArchive ia, String tag) throws IOException {
-        deserializeList(longKeyMap, ia);
-        nodes.clear();
+    public static DataTree deserialize(InputArchive ia) throws IOException {
+        DataTree tree = new DataTree();
+        tree.deserializeList(ia);
+        tree.nodes.clear();
         String path = ia.readString("path");
         while (!"/".equals(path)) {
             DataNode node = SerializeUtils.deserializeNode(ia);
-            nodes.put(path, node);
+            tree.nodes.put(path, node);
             int lastSlash = path.lastIndexOf('/');
             if (lastSlash == -1) {
-                root = node;
+                tree.root = node;
             } else {
                 String parentPath = path.substring(0, lastSlash);
-                DataNode parent = nodes.get(parentPath);
+                DataNode parent = tree.nodes.get(parentPath);
                 if (parent == null) {
                     throw new IOException("Invalid Datatree, unable to find " +
                             "parent " + parentPath + " of path " + path);
@@ -596,22 +596,23 @@ public class DataTree {
                 parent.addChild(path.substring(lastSlash + 1));
                 long eowner = node.stat.getEphemeralOwner();
                 if (eowner != 0) {
-                    HashSet<String> list = ephemerals.get(eowner);
+                    HashSet<String> list = tree.ephemerals.get(eowner);
                     if (list == null) {
                         list = new HashSet<String>();
-                        ephemerals.put(eowner, list);
+                        tree.ephemerals.put(eowner, list);
                     }
                     list.add(path);
                 }
             }
             path = ia.readString("path");
         }
-        nodes.put("/", root);
+        tree.nodes.put("/", tree.root);
         // we are done with deserializing the
         // the datatree
         // update the quotas - create path trie
         // and also update the stat nodes
-        setupQuota();
+        tree.setupQuota();
+        return tree;
     }
 
     /**

@@ -64,14 +64,16 @@ public class FileSnap {
      * deserialize a data tree from the most recent snapshot
      * @return the zxid of the snapshot
      */
-    public long deserialize(DataTree dt, Map<Long, Integer> sessions)
+    public DataTree deserialize(Map<Long, Integer> sessions)
             throws IOException {
+        DataTree tree = null;
         // we run through 100 snapshots (not all of them)
         // if we cannot get it running within 100 snapshots
         // we should  give up
         List<File> snapList = findNValidSnapshots(100);
         if (snapList.size() == 0) {
-            return -1L;
+            tree = new DataTree();
+            return tree;
         }
         File snap = null;
         boolean foundValid = false;
@@ -84,7 +86,7 @@ public class FileSnap {
                 snapIS = new BufferedInputStream(new FileInputStream(snap));
                 crcIn = new CheckedInputStream(snapIS, new Adler32());
                 InputArchive ia = BinaryInputArchive.getArchive(crcIn);
-                deserialize(dt,sessions, ia);
+                tree = deserialize(sessions, ia);
                 long checkSum = crcIn.getChecksum().getValue();
                 long val = ia.readLong("val");
                 if (val != checkSum) {
@@ -104,8 +106,9 @@ public class FileSnap {
         if (!foundValid) {
             throw new IOException("Not able to find valid snapshots in " + snapDir);
         }
-        dt.lastProcessedZxid = Util.getZxidFromName(snap.getName(), "snapshot");
-        return dt.lastProcessedZxid;
+        if(tree == null) tree = new DataTree();
+        tree.lastProcessedZxid = Util.getZxidFromName(snap.getName(), "snapshot");
+        return tree;
     }
 
     /**
@@ -115,8 +118,7 @@ public class FileSnap {
      * @param ia the input archive to restore from
      * @throws IOException
      */
-    public void deserialize(DataTree dt, Map<Long, Integer> sessions,
-            InputArchive ia) throws IOException {
+    public DataTree deserialize(Map<Long, Integer> sessions, InputArchive ia) throws IOException {
         FileHeader header = new FileHeader();
         header.deserialize(ia, "fileheader");
         if (header.getMagic() != SNAP_MAGIC) {
@@ -124,7 +126,7 @@ public class FileSnap {
                     + header.getMagic() +
                     " !=  " + FileSnap.SNAP_MAGIC);
         }
-        SerializeUtils.deserializeSnapshot(dt,ia,sessions);
+        return SerializeUtils.deserializeSnapshot(ia,sessions);
     }
 
     /**

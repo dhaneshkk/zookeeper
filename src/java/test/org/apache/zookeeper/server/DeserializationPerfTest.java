@@ -24,12 +24,12 @@ import java.io.IOException;
 
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZKTestCase;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DeserializationPerfTest extends ZKTestCase {
     protected static final Logger LOG = LoggerFactory.getLogger(DeserializationPerfTest.class);
@@ -52,11 +52,9 @@ public class DeserializationPerfTest extends ZKTestCase {
             ia = BinaryInputArchive.getArchive(bais);
         }
 
-        DataTree dserTree = new DataTree();
-
         System.gc();
         long start = System.nanoTime();
-        dserTree.deserialize(ia, "test");
+        DataTree dserTree = DataTree.deserialize(ia);
         long end = System.nanoTime();
         long durationms = (end - start) / 1000000L;
         long pernodeus = ((end - start) / 1000L) / count;

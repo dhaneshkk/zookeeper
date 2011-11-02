@@ -124,9 +124,9 @@ public class FileTxnSnapLog {
      * @return the highest zxid restored
      * @throws IOException
      */
-    public long restore(DataTree dt, Map<Long, Integer> sessions,
+    public DataTree restore(Map<Long, Integer> sessions,
             PlayBackListener listener) throws IOException {
-        snapLog.deserialize(dt, sessions);
+        DataTree dt = snapLog.deserialize(sessions);
         FileTxnLog txnLog = new FileTxnLog(dataDir);
         FileTxnIterator itr = txnLog.read(dt.lastProcessedZxid+1);
         long highestZxid = dt.lastProcessedZxid;
@@ -137,7 +137,7 @@ public class FileTxnSnapLog {
             hdr = itr.getHeader();
             if (hdr == null) {
                 //empty logs
-                return dt.lastProcessedZxid;
+                return dt;
             }
             if (hdr.getZxid() < highestZxid && highestZxid != 0) {
                 LOG.error(highestZxid + "(higestZxid) > "
@@ -156,7 +156,7 @@ public class FileTxnSnapLog {
             if (!itr.next())
                 break;
         }
-        return highestZxid;
+        return dt;
     }
 
     /**

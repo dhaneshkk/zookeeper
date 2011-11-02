@@ -40,10 +40,10 @@ import org.apache.zookeeper.txn.CreateTxn;
 import org.apache.zookeeper.txn.CreateTxnV0;
 import org.apache.zookeeper.txn.DeleteTxn;
 import org.apache.zookeeper.txn.ErrorTxn;
+import org.apache.zookeeper.txn.MultiTxn;
 import org.apache.zookeeper.txn.SetACLTxn;
 import org.apache.zookeeper.txn.SetDataTxn;
 import org.apache.zookeeper.txn.TxnHeader;
-import org.apache.zookeeper.txn.MultiTxn;
 
 public class SerializeUtils {
     private static final Map<OpCode, Class<? extends Record>> type2txnRecordClass
@@ -101,7 +101,7 @@ public class SerializeUtils {
         return txn;
     }
 
-    public static void deserializeSnapshot(DataTree dt,InputArchive ia,
+    public static DataTree deserializeSnapshot(InputArchive ia,
             Map<Long, Integer> sessions) throws IOException {
         int count = ia.readInt("count");
         while (count > 0) {
@@ -110,7 +110,7 @@ public class SerializeUtils {
             sessions.put(id, to);
             count--;
         }
-        dt.deserialize(ia, "tree");
+        return DataTree.deserialize(ia);
     }
 
     public static void serializeSnapshot(DataTree dt,OutputArchive oa,

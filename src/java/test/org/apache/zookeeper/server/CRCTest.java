@@ -78,14 +78,13 @@ public class CRCTest extends ZKTestCase implements Watcher {
 
     /** return if checksum matches for a snapshot **/
     private boolean getCheckSum(FileSnap snap, File snapFile) throws IOException {
-        DataTree dt = new DataTree();
         Map<Long, Integer> sessions = new ConcurrentHashMap<Long, Integer>();
         InputStream snapIS = new BufferedInputStream(new FileInputStream(
                 snapFile));
         CheckedInputStream crcIn = new CheckedInputStream(snapIS, new Adler32());
         InputArchive ia = BinaryInputArchive.getArchive(crcIn);
         try {
-            snap.deserialize(dt, sessions, ia);
+            snap.deserialize(sessions, ia);
         } catch (IOException ie) {
             // we failed on the most recent snapshot
             // must be incomplete
