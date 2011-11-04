@@ -23,14 +23,15 @@ import java.util.HashMap;
 import org.apache.zookeeper.jmx.MBeanRegistry;
 import org.apache.zookeeper.server.DataTreeBean;
 import org.apache.zookeeper.server.ServerCnxn;
+import org.apache.zookeeper.server.SessionTracker;
 import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.ZooKeeperServerBean;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 
 /**
- * Parent class for all ZooKeeperServers for Learners 
+ * Parent class for all ZooKeeperServers for Learners
  */
-public abstract class LearnerZooKeeperServer extends QuorumZooKeeperServer {    
+public abstract class LearnerZooKeeperServer extends QuorumZooKeeperServer {
     public LearnerZooKeeperServer(FileTxnSnapLog logFactory, int tickTime,
             int minSessionTimeout, int maxSessionTimeout,
             ZKDatabase zkDb, QuorumPeer self)
@@ -42,15 +43,15 @@ public abstract class LearnerZooKeeperServer extends QuorumZooKeeperServer {
     /**
      * Abstract method to return the learner associated with this server.
      * Since the Learner may change under our feet (when QuorumPeer reassigns
-     * it) we can't simply take a reference here. Instead, we need the 
-     * subclasses to implement this.     
+     * it) we can't simply take a reference here. Instead, we need the
+     * subclasses to implement this.
      */
-    abstract public Learner getLearner();        
-    
+    abstract public Learner getLearner();
+
     /**
      * Returns the current state of the session tracker. This is only currently
      * used by a Learner to build a ping response packet.
-     * 
+     *
      */
     protected HashMap<Long, Integer> getTouchSnapshot() {
         if (sessionTracker != null) {
@@ -58,28 +59,28 @@ public abstract class LearnerZooKeeperServer extends QuorumZooKeeperServer {
         }
         return new HashMap<Long, Integer>();
     }
-    
+
     /**
      * Returns the id of the associated QuorumPeer, which will do for a unique
-     * id of this server. 
+     * id of this server.
      */
     @Override
     public long getServerId() {
         return self.getId();
-    }    
-    
+    }
+
     @Override
-    protected void createSessionTracker() {
-        sessionTracker = new LearnerSessionTracker(this, getZKDatabase().getSessionWithTimeOuts(),
+    protected SessionTracker createSessionTracker() {
+        return new LearnerSessionTracker(this, getZKDatabase().sessionsWithTimeouts,
                 self.getId());
     }
-    
+
     @Override
     protected void revalidateSession(ServerCnxn cnxn, long sessionId,
             int sessionTimeout) throws IOException {
         getLearner().validateSession(cnxn, sessionId, sessionTimeout);
     }
-    
+
     @Override
     protected void registerJMX() {
         // register with JMX

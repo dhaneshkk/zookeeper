@@ -27,6 +27,7 @@ import org.apache.zookeeper.server.FinalRequestProcessor;
 import org.apache.zookeeper.server.PrepRequestProcessor;
 import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.ServerCnxn;
+import org.apache.zookeeper.server.SessionTracker;
 import org.apache.zookeeper.server.SessionTrackerImpl;
 import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
@@ -74,10 +75,9 @@ public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
     }
 
     @Override
-    protected void createSessionTracker() {
-        sessionTracker = new SessionTrackerImpl(this, getZKDatabase().getSessionWithTimeOuts(),
+    protected SessionTracker createSessionTracker() {
+        return new SessionTrackerImpl(this, getZKDatabase().sessionsWithTimeouts,
                 tickTime, self.getId());
-        ((SessionTrackerImpl)sessionTracker).start();
     }
 
 

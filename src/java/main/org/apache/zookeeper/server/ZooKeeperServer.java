@@ -30,7 +30,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 
 import javax.security.sasl.SaslException;
 
@@ -91,7 +90,6 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     protected int maxSessionTimeout = -1;
     protected SessionTracker sessionTracker;
     private FileTxnSnapLog txnLogFactory = null;
-    private ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
     private ZKDatabase zkDb;
     final AccessControl accessControl = AccessControl.create(!System.getProperty("zookeeper.skipACL", "no").equals("yes"));
     protected long hzxid = 0;
@@ -233,8 +231,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         // Clean up dead sessions
         LinkedList<Long> deadSessions = new LinkedList<Long>();
         for (Long session : zkDb.getSessions()) {
-            sessionsWithTimeouts = zkDb.getSessionWithTimeOuts();
-            if (sessionsWithTimeouts.get(session) == null) {
+            if (zkDb.sessionsWithTimeouts.get(session) == null) {
                 deadSessions.add(session);
             }
         }
@@ -259,7 +256,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
 
     public void takeSnapshot(){
         try {
-            txnLogFactory.save(zkDb.getDataTree(), zkDb.getSessionWithTimeOuts());
+            txnLogFactory.save(zkDb.getDataTree(), zkDb.sessionsWithTimeouts);
         } catch (IOException e) {
             LOG.error("Severe unrecoverable error, exiting", e);
             // This is a severe error that we cannot recover from,
@@ -339,7 +336,10 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     public void startup() {
-        createSessionTracker();
+        sessionTracker = createSessionTracker();
+        if(sessionTracker instanceof Thread) {
+            ((Thread)sessionTracker).start();
+        }
         setupRequestProcessors();
 
         registerJMX();
@@ -359,10 +359,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         ((PrepRequestProcessor)firstProcessor).start();
     }
 
-    protected void createSessionTracker() {
-        sessionTracker = new SessionTrackerImpl(this, zkDb.getSessionWithTimeOuts(),
+    protected SessionTracker createSessionTracker() {
+        return new SessionTrackerImpl(this, zkDb.sessionsWithTimeouts,
                 tickTime, 1);
-        ((SessionTrackerImpl)sessionTracker).start();
     }
 
     public boolean isRunning() {

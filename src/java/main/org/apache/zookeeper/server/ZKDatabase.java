@@ -64,7 +64,7 @@ public class ZKDatabase {
      * all these members.
      */
     protected DataTree dataTree;
-    protected ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
+    public final ConcurrentHashMap<Long, Integer> sessionsWithTimeouts = new ConcurrentHashMap<Long, Integer>();
     protected long minCommittedLog, maxCommittedLog;
     public static final int commitLogCount = 500;
     protected static int commitLogBuffer = 700;
@@ -84,7 +84,6 @@ public class ZKDatabase {
      */
     public ZKDatabase() {
         dataTree = new DataTree();
-        sessionsWithTimeouts = new ConcurrentHashMap<Long, Integer>();
     }
 
     /**
@@ -185,15 +184,6 @@ public class ZKDatabase {
     public Collection<Long> getSessions() {
         return dataTree.getSessions();
     }
-
-    /**
-     * get sessions with timeouts
-     * @return the hashmap of sessions with timeouts
-     */
-    public ConcurrentHashMap<Long, Integer> getSessionWithTimeOuts() {
-        return sessionsWithTimeouts;
-    }
-
 
     /**
      * load the database from the disk onto memory and also add
@@ -355,7 +345,7 @@ public class ZKDatabase {
      */
     public void deserializeSnapshot(InputArchive ia) throws IOException {
         clear();
-        dataTree = SerializeUtils.deserializeSnapshot(ia,getSessionWithTimeOuts());
+        dataTree = SerializeUtils.deserializeSnapshot(ia, sessionsWithTimeouts);
         initialized = true;
     }
 
@@ -367,7 +357,7 @@ public class ZKDatabase {
      */
     public void serializeSnapshot(OutputArchive oa) throws IOException,
     InterruptedException {
-        SerializeUtils.serializeSnapshot(getDataTree(), oa, getSessionWithTimeOuts());
+        SerializeUtils.serializeSnapshot(getDataTree(), oa, sessionsWithTimeouts);
     }
 
     public void processTxn(TxnHeader hdr, Record txn) {
