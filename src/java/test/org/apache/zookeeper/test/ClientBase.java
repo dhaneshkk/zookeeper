@@ -38,8 +38,6 @@ import java.util.concurrent.TimeoutException;
 
 import javax.management.MBeanServerConnection;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.PortAssignment;
 import org.apache.zookeeper.TestableZooKeeper;
@@ -50,12 +48,13 @@ import org.apache.zookeeper.ZKTestCase;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ServerCnxnFactoryAccessor;
-import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.persistence.FileTxnLog;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.sun.management.UnixOperatingSystemMXBean;
 
@@ -357,15 +356,9 @@ public abstract class ClientBase extends ZKTestCase {
             String hostPort)
     {
         if (factory != null) {
-            ZKDatabase zkDb;
-            {
-                ZooKeeperServer zs = getServer(factory);
-
-                zkDb = zs.getZKDatabase();
-            }
             factory.shutdown();
             try {
-                zkDb.close();
+                getServer(factory).getTxnLogFactory().close();
             } catch (IOException ie) {
                 LOG.warn("Error closing logs ", ie);
             }

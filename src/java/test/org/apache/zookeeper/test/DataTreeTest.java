@@ -37,7 +37,7 @@ public class DataTreeTest extends ZKTestCase {
 
     @Before
     public void setUp() throws Exception {
-        zkdb = new ZKDatabase(null);
+        zkdb = new ZKDatabase();
     }
 
     @Test

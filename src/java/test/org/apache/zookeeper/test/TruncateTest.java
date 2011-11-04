@@ -23,8 +23,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.WatchedEvent;
@@ -34,34 +32,34 @@ import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.ServerCnxnFactory;
-import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.quorum.QuorumPeer;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class TruncateTest extends ZKTestCase {
 	private static final Logger LOG = LoggerFactory.getLogger(TruncateTest.class);
     File dataDir1, dataDir2, dataDir3;
     final int baseHostPort = 12233;
-    
+
     @Before
     public void setUp() throws IOException {
         dataDir1 = ClientBase.createTmpDir();
         dataDir2 = ClientBase.createTmpDir();
         dataDir3 = ClientBase.createTmpDir();
     }
-    
+
     @After
     public void tearDown() {
         ClientBase.recursiveDelete(dataDir1);
         ClientBase.recursiveDelete(dataDir2);
         ClientBase.recursiveDelete(dataDir3);
     }
-    
+
     volatile boolean connected;
     Watcher nullWatcher = new Watcher() {
         @Override
@@ -69,7 +67,7 @@ public class TruncateTest extends ZKTestCase {
             connected = event.getState() == Watcher.Event.KeeperState.SyncConnected;
         }
     };
-    
+
     @Test
     public void testTruncate() throws IOException, InterruptedException, KeeperException {
         // Prime the server that is going to come in late with 50 txns
@@ -79,16 +77,10 @@ public class TruncateTest extends ZKTestCase {
             zk.create("/" + i, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
         }
         zk.close();
-        
-        ZKDatabase zkDb;
-        {
-            ZooKeeperServer zs = ClientBase.getServer(factory);
-    
-            zkDb = zs.getZKDatabase();
-        }
+
         factory.shutdown();
         try {
-            zkDb.close();
+            ClientBase.getServer(factory).getTxnLogFactory().close();
         } catch (IOException ie) {
             LOG.warn("Error closing logs ", ie);
         }
@@ -98,7 +90,7 @@ public class TruncateTest extends ZKTestCase {
         int port1 = baseHostPort+1;
         int port2 = baseHostPort+2;
         int port3 = baseHostPort+3;
-        
+
         // Start up two of the quorum and add 10 txns
         HashMap<Long,QuorumServer> peers = new HashMap<Long,QuorumServer>();
         peers.put(Long.valueOf(1), new QuorumServer(1, new InetSocketAddress("127.0.0.1", port1 + 1000)));
@@ -118,7 +110,7 @@ public class TruncateTest extends ZKTestCase {
             zk.create("/" + i, new byte[0], ZooDefs.Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
         }
         zk.close();
-        
+
         final ZooKeeper zk2 = new ZooKeeper("127.0.0.1:" + port2, 15000, nullWatcher);
         zk2.getData("/9", false, new Stat());
         try {

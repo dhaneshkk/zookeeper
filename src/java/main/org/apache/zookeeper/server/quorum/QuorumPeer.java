@@ -36,8 +36,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.jmx.MBeanRegistry;
 import org.apache.zookeeper.jmx.ZKMBeanInfo;
 import org.apache.zookeeper.server.ServerCnxnFactory;
@@ -47,6 +45,8 @@ import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.flexible.QuorumMaj;
 import org.apache.zookeeper.server.quorum.flexible.QuorumVerifier;
 import org.apache.zookeeper.server.util.ZxidUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class manages the quorum protocol. There are three states this server
@@ -394,7 +394,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
         this.initLimit = initLimit;
         this.syncLimit = syncLimit;
         this.logFactory = new FileTxnSnapLog(dataLogDir, dataDir);
-        this.zkDb = new ZKDatabase(this.logFactory);
+        this.zkDb = new ZKDatabase();
         if(quorumConfig == null)
             this.quorumConfig = new QuorumMaj(countParticipants(quorumPeers));
         else this.quorumConfig = quorumConfig;
@@ -414,7 +414,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
 
     private void loadDataBase() {
         try {
-            zkDb.loadDataBase();
+            zkDb.loadDataBase(this.logFactory);
 
             // load the epochs
             long lastProcessedZxid = zkDb.getDataTree().lastProcessedZxid;
@@ -670,7 +670,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                         // Create read-only server but don't start it immediately
                         final ReadOnlyZooKeeperServer roZk =
                             new ReadOnlyZooKeeperServer(logFactory, this, this.zkDb);
-    
+
                         // Instead of starting roZk immediately, wait some grace
                         // period before we decide we're partitioned.
                         //
@@ -710,7 +710,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);
                             setPeerState(ServerState.LOOKING);
-                        }                        
+                        }
                     }
                     break;
                 case OBSERVING:
@@ -787,7 +787,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
             getElectionAlg().shutdown();
         }
         try {
-            zkDb.close();
+            logFactory.close();
         } catch (IOException ie) {
             LOG.warn("Error closing logs ", ie);
         }

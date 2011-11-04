@@ -65,7 +65,6 @@ public class ZKDatabase {
      */
     protected DataTree dataTree;
     protected ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
-    protected FileTxnSnapLog snapLog;
     protected long minCommittedLog, maxCommittedLog;
     public static final int commitLogCount = 500;
     protected static int commitLogBuffer = 700;
@@ -83,10 +82,9 @@ public class ZKDatabase {
      * between a filetxnsnaplog and zkdatabase.
      * @param snapLog the FileTxnSnapLog mapping this zkdatabase
      */
-    public ZKDatabase(FileTxnSnapLog snapLog) {
+    public ZKDatabase() {
         dataTree = new DataTree();
         sessionsWithTimeouts = new ConcurrentHashMap<Long, Integer>();
-        this.snapLog = snapLog;
     }
 
     /**
@@ -203,7 +201,7 @@ public class ZKDatabase {
      * @return the last valid zxid on disk
      * @throws IOException
      */
-    public long loadDataBase() throws IOException {
+    public long loadDataBase(FileTxnSnapLog snapLog) throws IOException {
         PlayBackListener listener=new PlayBackListener(){
             public void onTxnLoaded(TxnHeader hdr,Record txn){
                 Meta meta = new Meta(0, hdr.getCxid(), hdr.getZxid(), OpCode.fromInt(hdr.getType()));
@@ -343,10 +341,10 @@ public class ZKDatabase {
      * @return true if the truncate is succesful and false if not
      * @throws IOException
      */
-    public boolean truncateLog(long zxid) throws IOException {
+    public boolean truncateLog(FileTxnSnapLog snapLog, long zxid) throws IOException {
         clear();
-        boolean truncated = this.snapLog.truncateLog(zxid);
-        loadDataBase();
+        boolean truncated = snapLog.truncateLog(zxid);
+        loadDataBase(snapLog);
         return truncated;
     }
 
@@ -370,38 +368,6 @@ public class ZKDatabase {
     public void serializeSnapshot(OutputArchive oa) throws IOException,
     InterruptedException {
         SerializeUtils.serializeSnapshot(getDataTree(), oa, getSessionWithTimeOuts());
-    }
-
-    /**
-     * append to the underlying transaction log
-     * @param si the request to append
-     * @return true if the append was succesfull and false if not
-     */
-    public boolean append(Request si) throws IOException {
-        return this.snapLog.append(si);
-    }
-
-    /**
-     * roll the underlying log
-     */
-    public void rollLog() throws IOException {
-        this.snapLog.rollLog();
-    }
-
-    /**
-     * commit to the underlying transaction log
-     * @throws IOException
-     */
-    public void commit() throws IOException {
-        this.snapLog.commit();
-    }
-
-    /**
-     * close this database. free the resources
-     * @throws IOException
-     */
-    public void close() throws IOException {
-        this.snapLog.close();
     }
 
     public void processTxn(TxnHeader hdr, Record txn) {

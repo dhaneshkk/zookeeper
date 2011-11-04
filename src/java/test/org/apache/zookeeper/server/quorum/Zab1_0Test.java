@@ -39,9 +39,6 @@ import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZKDatabase;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
-import org.apache.zookeeper.server.quorum.Leader;
-import org.apache.zookeeper.server.quorum.LearnerInfo;
-import org.apache.zookeeper.server.quorum.QuorumPacket;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
 import org.apache.zookeeper.server.quorum.flexible.QuorumMaj;
 import org.apache.zookeeper.server.util.ZxidUtils;
@@ -281,7 +278,7 @@ public class Zab1_0Test {
         Field addrField = peer.getClass().getDeclaredField("myQuorumAddr");
         addrField.setAccessible(true);
         addrField.set(peer, new InetSocketAddress(33556));
-        ZKDatabase zkDb = new ZKDatabase(logFactory);
+        ZKDatabase zkDb = new ZKDatabase();
         LeaderZooKeeperServer zk = new LeaderZooKeeperServer(logFactory, peer, zkDb);
         return new Leader(peer, zk);
     }

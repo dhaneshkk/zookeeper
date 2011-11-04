@@ -48,12 +48,12 @@ import org.slf4j.LoggerFactory;
 public class FileTxnSnapLog {
     //the direcotry containing the
     //the transaction logs
-    File dataDir;
+    private final File dataDir;
     //the directory containing the
     //the snapshot directory
-    File snapDir;
-    FileTxnLog txnLog;
-    FileSnap snapLog;
+    private final File snapDir;
+    private final FileTxnLog txnLog;
+    private final FileSnap snapLog;
     public final static int VERSION = 2;
     public final static String version = "version-";
 

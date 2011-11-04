@@ -160,7 +160,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @throws IOException
      */
     public ZooKeeperServer(FileTxnSnapLog txnLogFactory, int tickTime) throws IOException {
-        this(txnLogFactory, tickTime, -1, -1, new ZKDatabase(txnLogFactory));
+        this(txnLogFactory, tickTime, -1, -1, new ZKDatabase());
     }
 
     public ServerStats serverStats() {
@@ -171,9 +171,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         pwriter.print("clientPort=");
         pwriter.println(getClientPort());
         pwriter.print("dataDir=");
-        pwriter.println(zkDb.snapLog.getSnapDir().getAbsolutePath());
+        pwriter.println(txnLogFactory.getSnapDir().getAbsolutePath());
         pwriter.print("dataLogDir=");
-        pwriter.println(zkDb.snapLog.getDataDir().getAbsolutePath());
+        pwriter.println(txnLogFactory.getDataDir().getAbsolutePath());
         pwriter.print("tickTime=");
         pwriter.println(getTickTime());
         pwriter.print("maxClientCnxns=");
@@ -206,7 +206,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     public ZooKeeperServer(FileTxnSnapLog txnLogFactory)
         throws IOException
     {
-        this(txnLogFactory, DEFAULT_TICK_TIME, -1, -1, new ZKDatabase(txnLogFactory));
+        this(txnLogFactory, DEFAULT_TICK_TIME, -1, -1, new ZKDatabase());
     }
 
     /**
@@ -229,7 +229,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      *  Restore sessions and data
      */
     public void loadData() throws IOException, InterruptedException {
-        setZxid(zkDb.loadDataBase());
+        setZxid(zkDb.loadDataBase(txnLogFactory));
         // Clean up dead sessions
         LinkedList<Long> deadSessions = new LinkedList<Long>();
         for (Long session : zkDb.getSessions()) {
@@ -331,7 +331,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     throws IOException, InterruptedException {
         //check to see if zkDb is not null
         if (zkDb == null) {
-            zkDb = new ZKDatabase(this.txnLogFactory);
+            zkDb = new ZKDatabase();
         }
         if (!zkDb.isInitialized()) {
             loadData();
@@ -660,7 +660,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @throws IOException
      */
     public void truncateLog(long zxid) throws IOException {
-        this.zkDb.truncateLog(zxid);
+        this.zkDb.truncateLog(txnLogFactory, zxid);
     }
 
     public int getTickTime() {

@@ -38,8 +38,6 @@ import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.common.AccessControlList.Identifier;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.ServerCnxn;
@@ -47,6 +45,8 @@ import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
 import org.apache.zookeeper.server.util.SerializeUtils;
 import org.apache.zookeeper.server.util.ZxidUtils;
 import org.apache.zookeeper.txn.TxnHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * This class is the superclass of two of the three main actors in a ZK
@@ -322,7 +322,7 @@ public class Learner {
                 //we need to truncate the log to the lastzxid of the leader
                 LOG.warn("Truncating log to get in sync with the leader 0x"
                         + Long.toHexString(qp.getZxid()));
-                boolean truncated=zk.getZKDatabase().truncateLog(qp.getZxid());
+                boolean truncated=zk.getZKDatabase().truncateLog(zk.getTxnLogFactory(), qp.getZxid());
                 if (!truncated) {
                     // not able to truncate the log
                     LOG.error("Not able to truncate the log "

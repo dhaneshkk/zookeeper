@@ -21,15 +21,15 @@ import java.io.IOException;
 
 import javax.management.JMException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.jmx.ManagedUtil;
+import org.apache.zookeeper.server.DatadirCleanupManager;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.DatadirCleanupManager;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  *
@@ -122,13 +122,13 @@ public class QuorumPeerMain {
       } catch (JMException e) {
           LOG.warn("Unable to register log4j JMX control", e);
       }
-  
+
       LOG.info("Starting quorum peer");
       try {
           ServerCnxnFactory cnxnFactory = ServerCnxnFactory.createFactory();
           cnxnFactory.configure(config.getClientPortAddress(),
                                 config.getMaxClientCnxns());
-  
+
           quorumPeer = new QuorumPeer();
           quorumPeer.setClientPortAddress(config.getClientPortAddress());
           quorumPeer.setTxnFactory(new FileTxnSnapLog(
@@ -144,9 +144,9 @@ public class QuorumPeerMain {
           quorumPeer.setSyncLimit(config.getSyncLimit());
           quorumPeer.setQuorumVerifier(config.getQuorumVerifier());
           quorumPeer.setCnxnFactory(cnxnFactory);
-          quorumPeer.setZKDatabase(new ZKDatabase(quorumPeer.getTxnFactory()));
+          quorumPeer.setZKDatabase(new ZKDatabase());
           quorumPeer.setLearnerType(config.getPeerType());
-  
+
           quorumPeer.start();
           quorumPeer.join();
       } catch (InterruptedException e) {
